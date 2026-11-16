@@ -1,0 +1,136 @@
+
+.menu-page {
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+}
+
+.menu-heading,
+.menu-table-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 15px;
+}
+
+.menu-heading h2 {
+  font-size: 22px;
+  margin-bottom: 7px;
+}
+
+.menu-heading p {
+  color: #888;
+  font-size: 13px;
+}
+
+.add-meal-btn {
+  background: #b87845;
+  color: white;
+  border: none;
+  padding: 12px 18px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.add-meal-btn:hover {
+  background: #986039;
+}
+
+.menu-summary {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 18px;
+}
+
+.menu-summary > div,
+.menu-table-panel,
+.meal-form {
+  background: white;
+  border: 1px solid #eee;
+  border-radius: 10px;
+  padding: 22px;
+}
+
+.menu-summary span {
+  color: #888;
+  font-size: 12px;
+}
+
+.menu-summary h2 {
+  margin-top: 12px;
+  font-size: 27px;
+}
+
+.menu-table-panel h3,
+.meal-form h3 {
+  font-size: 17px;
+  margin-bottom: 20px;
+}
+
+.menu-table-heading input,
+.meal-form input,
+.meal-form select {
+  padding: 11px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  outline-color: #b87845;
+}
+
+.meal-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  max-width: 600px;
+}
+
+.meal-form label {
+  font-size: 13px;
+  font-weight: bold;
+}
+
+.form-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.cancel-btn {
+  background: #eee;
+  border: none;
+  padding: 12px 18px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.menu-table-panel table {
+  margin-top: 20px;
+}
+
+.table-action,
+.delete-action {
+  border: none;
+  background: transparent;
+  margin-right: 10px;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.table-action {
+  color: #b87845;
+}
+
+.delete-action {
+  color: #c44b4b;
+}
+
+@media (max-width: 700px) {
+  .menu-summary {
+    grid-template-columns: 1fr;
+  }
+
+  .menu-heading,
+  .menu-table-heading {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}
