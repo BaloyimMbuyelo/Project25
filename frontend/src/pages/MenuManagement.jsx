@@ -3,17 +3,59 @@ import { useState } from 'react';
 import './MenuManagement.css';
 
 const initialMeals = [
-  { id: 1, name: 'Grilled Chicken', category: 'Main Course', price: 185, available: true },
-  { id: 2, name: 'Beef Burger', category: 'Main Course', price: 120, available: true },
-  { id: 3, name: 'Creamy Pasta', category: 'Main Course', price: 145, available: true },
-  { id: 4, name: 'Garden Salad', category: 'Starters', price: 95, available: false },
-  { id: 5, name: 'Chocolate Cake', category: 'Desserts', price: 75, available: true },
+  {
+    id: 1,
+    name: 'Grilled Chicken',
+    description: 'Tender grilled chicken served with seasonal vegetables.',
+    category: 'Main Course',
+    price: 195,
+    image: '/images/restaurant-pictures/grilled-chicken.jpeg',
+    available: true,
+  },
+  {
+    id: 2,
+    name: 'Beef Burger',
+    description: 'Juicy beef patty served with fresh lettuce and tomato.',
+    category: 'Main Course',
+    price: 120,
+    image: '/images/restaurant-pictures/beef-burger.jpeg',
+    available: true,
+  },
+  {
+    id: 3,
+    name: 'Creamy Pasta',
+    description: 'Pasta prepared in a rich and creamy sauce.',
+    category: 'Main Course',
+    price: 145,
+    image: '/images/restaurant-pictures/creamy-pasta.jpeg',
+    available: true,
+  },
+  {
+    id: 4,
+    name: 'Garden Salad',
+    description: 'Fresh seasonal vegetables with house dressing.',
+    category: 'Starters',
+    price: 95,
+    image: '/images/restaurant-pictures/green-salad.jpeg',
+    available: false,
+  },
+  {
+    id: 5,
+    name: 'Chocolate Cake',
+    description: 'Rich chocolate cake served as a dessert.',
+    category: 'Desserts',
+    price: 75,
+    image: '/images/restaurant-pictures/chocolate-cake.jpeg',
+    available: true,
+  },
 ];
 
 const emptyForm = {
   name: '',
+  description: '',
   category: 'Main Course',
   price: '',
+  image: '',
 };
 
 function MenuManagement() {
@@ -32,10 +74,11 @@ function MenuManagement() {
     'Drinks',
   ];
 
+  /* Search and category filtering */
   const filteredMeals = meals.filter((meal) => {
-    const matchesSearch = meal.name
-      .toLowerCase()
-      .includes(search.toLowerCase());
+    const matchesSearch =
+      meal.name.toLowerCase().includes(search.toLowerCase()) ||
+      meal.description.toLowerCase().includes(search.toLowerCase());
 
     const matchesCategory =
       categoryFilter === 'All' ||
@@ -44,69 +87,98 @@ function MenuManagement() {
     return matchesSearch && matchesCategory;
   });
 
+  /* Open add form */
   function openAddForm() {
     setEditingId(null);
-    setForm(emptyForm);
+    setForm({ ...emptyForm });
     setShowForm(true);
   }
 
+  /* Open edit form */
   function openEditForm(meal) {
     setEditingId(meal.id);
+
     setForm({
       name: meal.name,
+      description: meal.description,
       category: meal.category,
       price: String(meal.price),
+      image: meal.image || '',
     });
+
     setShowForm(true);
   }
 
+  /* Close form */
+  function closeForm() {
+    setShowForm(false);
+    setEditingId(null);
+    setForm({ ...emptyForm });
+  }
+
+  /* Remove image URL */
+  function removeImage() {
+    setForm((current) => ({
+      ...current,
+      image: '',
+    }));
+  }
+
+  /* Add or update meal */
   function handleSubmit(e) {
     e.preventDefault();
 
     const price = Number(form.price);
+    const imageUrl = form.image.trim();
 
-    if (!form.name.trim() || !Number.isFinite(price) || price <= 0) {
-      alert('Please enter a meal name and a valid price.');
+    if (
+      !form.name.trim() ||
+      !Number.isFinite(price) ||
+      price <= 0
+    ) {
+      alert('Please enter a valid meal name and price.');
       return;
     }
 
+    if (imageUrl && !/^https?:\/\/\S+$/i.test(imageUrl) && !imageUrl.startsWith('/')) {
+      alert('Please enter a valid image URL or local image path.');
+      return;
+    }
+
+    const mealData = {
+      name: form.name.trim(),
+      description: form.description.trim(),
+      category: form.category,
+      price,
+      image: imageUrl,
+    };
+
     if (editingId !== null) {
-      setMeals((currentMeals) =>
-        currentMeals.map((meal) =>
+      setMeals((current) =>
+        current.map((meal) =>
           meal.id === editingId
-            ? {
-                ...meal,
-                name: form.name.trim(),
-                category: form.category,
-                price,
-              }
+            ? { ...meal, ...mealData }
             : meal
         )
       );
     } else {
-      const newMeal = {
-        id: Date.now(),
-        name: form.name.trim(),
-        category: form.category,
-        price,
-        available: true,
-      };
-
-      setMeals((currentMeals) => [...currentMeals, newMeal]);
+      setMeals((current) => [
+        ...current,
+        {
+          id: Date.now(),
+          ...mealData,
+          available: true,
+        },
+      ]);
     }
 
     closeForm();
   }
 
-  function closeForm() {
-    setShowForm(false);
-    setEditingId(null);
-    setForm(emptyForm);
-  }
-
+  /* Enable or disable meal */
   function toggleAvailability(id) {
-    setMeals((currentMeals) =>
-      currentMeals.map((meal) =>
+    setMeals((current) =>
+      current.map((meal) =>
         meal.id === id
           ? { ...meal, available: !meal.available }
           : meal
@@ -114,14 +186,11 @@ function MenuManagement() {
     );
   }
 
+  /* Delete meal */
   function deleteMeal(id) {
-    const confirmed = window.confirm(
-      'Are you sure you want to delete this menu item?'
-    );
-
-    if (confirmed) {
-      setMeals((currentMeals) =>
-        currentMeals.filter((meal) => meal.id !== id)
+    if (window.confirm('Are you sure you want to delete this menu item?')) {
+      setMeals((current) =>
+        current.filter((meal) => meal.id !== id)
       );
     }
   }
@@ -129,21 +198,25 @@ function MenuManagement() {
   return (
     <div className="menu-page">
 
-      {/* Page heading */}
+      {/* Page Heading */}
       <div className="menu-heading">
         <div>
           <h2>Menu Management</h2>
           <p>
-            Manage restaurant meals, categories, pricing and availability.
+            Manage meals, descriptions, images, prices and availability.
           </p>
         </div>
 
-        <button className="add-meal-btn" onClick={openAddForm}>
+        <button
+          type="button"
+          className="add-meal-btn"
+          onClick={openAddForm}
+        >
           + Add New Meal
         </button>
       </div>
 
-      {/* Summary cards */}
+      {/* Summary Cards */}
       <div className="menu-summary">
         <div>
           <span>Total Menu Items</span>
@@ -161,11 +234,13 @@ function MenuManagement() {
         </div>
       </div>
 
-      {/* Add and edit form */}
+      {/* Add and Edit Meal Form */}
       {showForm && (
         <form className="meal-form" onSubmit={handleSubmit}>
           <h3>
-            {editingId !== null ? 'Edit Menu Item' : 'Add New Menu Item'}
+            {editingId !== null
+              ? 'Edit Menu Item'
+              : 'Add New Menu Item'}
           </h3>
 
           <label htmlFor="mealName">Meal Name</label>
@@ -180,6 +255,17 @@ function MenuManagement() {
             required
           />
 
+          <label htmlFor="mealDescription">Meal Description</label>
+          <textarea
+            id="mealDescription"
+            placeholder="Describe the meal and its ingredients"
+            value={form.description}
+            onChange={(e) =>
+              setForm({ ...form, description: e.target.value })
+            }
+            rows="3"
+          />
+
           <label htmlFor="mealCategory">Category</label>
           <select
             id="mealCategory"
@@ -188,13 +274,13 @@ function MenuManagement() {
               setForm({ ...form, category: e.target.value })
             }
           >
-            {categories.filter((category) => category !== 'All').map(
-              (category) => (
+            {categories
+              .filter((category) => category !== 'All')
+              .map((category) => (
                 <option key={category} value={category}>
                   {category}
                 </option>
-              )
-            )}
+              ))}
           </select>
 
           <label htmlFor="mealPrice">Price (R)</label>
@@ -203,7 +289,7 @@ function MenuManagement() {
             type="number"
             min="0.01"
             step="0.01"
-            placeholder="Enter price"
+            placeholder="Enter meal price"
             value={form.price}
             onChange={(e) =>
               setForm({ ...form, price: e.target.value })
@@ -211,6 +297,52 @@ function MenuManagement() {
             required
           />
 
+          {/* Food Image URL */}
+          <label htmlFor="mealImage">
+            Food Image URL or Local Image Path (optional)
+          </label>
+
+          <input
+            id="mealImage"
+            type="text"
+            placeholder="/images/restaurant-pictures/food.jpeg"
+            value={form.image}
+            onChange={(e) =>
+              setForm({ ...form, image: e.target.value })
+            }
+          />
+
+          <small>
+            Use a project image path or a direct image URL.
+          </small>
+
+          {/* Image Preview */}
+          {form.image.trim() && (
+            <div className="image-preview">
+              <p>Food Image Preview</p>
+
+              <img
+                src={form.image.trim()}
+                alt="Meal preview"
+                onError={(e) => {
+                  e.currentTarget.style.display = 'none';
+                }}
+                onLoad={(e) => {
+                  e.currentTarget.style.display = 'block';
+                }}
+              />
+
+              <button
+                type="button"
+                className="remove-image-btn"
+                onClick={removeImage}
+              >
+                Remove Image
+              </button>
+            </div>
+          )}
+
+          {/* Form Actions */}
           <div className="form-actions">
             <button type="submit" className="add-meal-btn">
               {editingId !== null ? 'Update Meal' : 'Save Meal'}
@@ -227,9 +359,8 @@ function MenuManagement() {
         </form>
       )}
 
-      {/* Menu table */}
+      {/* Restaurant Menu Table */}
       <div className="menu-table-panel">
-
         <div className="menu-table-heading">
           <div>
             <h3>Restaurant Menu</h3>
@@ -244,9 +375,11 @@ function MenuManagement() {
           />
         </div>
 
-        {/* Category filter */}
+        {/* Category Filter */}
         <div className="menu-filters">
-          <label htmlFor="categoryFilter">Filter by category:</label>
+          <label htmlFor="categoryFilter">
+            Filter by category:
+          </label>
 
           <select
             id="categoryFilter"
@@ -261,10 +394,12 @@ function MenuManagement() {
           </select>
         </div>
 
+        {/* Meals Table */}
         <div className="table-wrapper">
           <table>
             <thead>
               <tr>
+                <th>Image</th>
                 <th>Meal Name</th>
                 <th>Category</th>
                 <th>Price</th>
@@ -276,14 +411,36 @@ function MenuManagement() {
             <tbody>
               {filteredMeals.map((meal) => (
                 <tr key={meal.id}>
+                  {/* Meal Image */}
+                  <td>
+                    {meal.image ? (
+                      <img
+                        className="meal-thumbnail"
+                        src={meal.image}
+                        alt={meal.name}
+                        onError={(e) => {
+                          e.currentTarget.style.display = 'none';
+                        }}
+                      />
+                    ) : (
+                      <div className="meal-placeholder">
+                        🍽️
+                      </div>
+                    )}
+                  </td>
+
+                  {/* Meal Details */}
                   <td>
                     <strong>{meal.name}</strong>
+                    <p className="meal-description">
+                      {meal.description}
+                    </p>
                   </td>
 
                   <td>{meal.category}</td>
-
                   <td>R {meal.price.toFixed(2)}</td>
 
+                  {/* Availability */}
                   <td>
                     <span
                       className={`status ${
@@ -294,6 +451,7 @@ function MenuManagement() {
                     </span>
                   </td>
 
+                  {/* Actions */}
                   <td>
                     <div className="meal-actions">
                       <button
@@ -326,7 +484,7 @@ function MenuManagement() {
 
               {filteredMeals.length === 0 && (
                 <tr>
-                  <td colSpan="5">
+                  <td colSpan="6">
                     No matching meals found.
                   </td>
                 </tr>

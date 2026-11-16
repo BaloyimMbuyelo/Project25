@@ -1,14 +1,18 @@
 
+/* Main menu page */
 .menu-page {
   display: flex;
   flex-direction: column;
   gap: 22px;
   width: 100%;
+  min-width: 0;
   color: #292929;
+  box-sizing: border-box;
 }
 
-/* Page heading */
-.menu-heading {
+/* Page headings */
+.menu-heading,
+.menu-table-heading {
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -18,10 +22,10 @@
 .menu-heading h2 {
   font-size: 23px;
   margin-bottom: 8px;
-  color: #292929;
 }
 
-.menu-heading p {
+.menu-heading p,
+.menu-table-heading p {
   color: #888;
   font-size: 13px;
 }
@@ -36,6 +40,7 @@
   font-size: 13px;
   font-weight: 600;
   cursor: pointer;
+  transition: background 0.2s ease;
 }
 
 .add-meal-btn:hover {
@@ -49,21 +54,28 @@
   padding: 12px 18px;
   border-radius: 7px;
   cursor: pointer;
+  transition: background 0.2s ease;
 }
 
-/* Summary cards */
+.cancel-btn:hover {
+  background: #dddddd;
+}
+
+/* Menu summary cards */
 .menu-summary {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 18px;
 }
 
-.menu-summary > div {
+.menu-summary > div,
+.menu-table-panel,
+.meal-form {
   background: white;
   border: 1px solid #eeeeee;
   border-radius: 10px;
   padding: 23px;
-  box-shadow: 0 2px 7px rgba(0, 0, 0, 0.02);
+  box-sizing: border-box;
 }
 
 .menu-summary span {
@@ -82,17 +94,14 @@
   display: flex;
   flex-direction: column;
   gap: 12px;
+  width: 100%;
   max-width: 650px;
-  background: white;
-  border: 1px solid #eeeeee;
-  border-radius: 10px;
-  padding: 25px;
 }
 
-.meal-form h3 {
+.meal-form h3,
+.menu-table-panel h3 {
   font-size: 18px;
-  margin-bottom: 8px;
-  color: #292929;
+  margin-bottom: 10px;
 }
 
 .meal-form label {
@@ -102,15 +111,52 @@
 }
 
 .meal-form input,
-.meal-form select {
+.meal-form select,
+.meal-form textarea,
+.menu-table-heading input,
+.menu-filters select {
   width: 100%;
-  padding: 12px;
-  border: 1px solid #dddddd;
+  padding: 11px 13px;
+  border: 1px solid #ddd;
   border-radius: 6px;
   background: white;
   color: #292929;
+  font-family: Arial, sans-serif;
   font-size: 13px;
   outline-color: #b87845;
+  box-sizing: border-box;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.meal-form input:focus,
+.meal-form select:focus,
+.meal-form textarea:focus,
+.menu-table-heading input:focus,
+.menu-filters select:focus {
+  border-color: #b87845;
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(184, 120, 69, 0.12);
+}
+
+.meal-form textarea {
+  resize: vertical;
+  min-height: 85px;
+}
+
+/* Food image URL */
+.meal-form input[type="url"] {
+  width: 100%;
+  padding: 11px 13px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  background: white;
+  color: #292929;
+}
+
+.meal-form input[type="url"]:focus {
+  border-color: #b87845;
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(184, 120, 69, 0.12);
 }
 
 .form-actions {
@@ -119,41 +165,62 @@
   margin-top: 12px;
 }
 
-/* Menu table panel */
-.menu-table-panel {
-  background: white;
-  border: 1px solid #eeeeee;
-  border-radius: 10px;
-  padding: 23px;
-  min-width: 0;
+/* Image preview */
+.image-preview {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+  margin-top: 10px;
+  padding: 12px;
+  background: #fcf8f5;
+  border: 1px solid #f0e4da;
+  border-radius: 8px;
 }
 
-.menu-table-heading {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 15px;
+.image-preview p {
+  font-size: 12px;
+  margin-bottom: 5px;
+  color: #777;
+}
+
+.image-preview img {
+  width: 200px;
+  height: 140px;
+  max-width: 100%;
+  object-fit: cover;
+  border-radius: 9px;
+  border: 1px solid #eee;
+}
+
+/* Remove image button */
+.remove-image-btn {
+  background: transparent;
+  color: #c44b4b;
+  border: none;
+  cursor: pointer;
+  font-size: 12px;
+  padding: 5px 0;
+}
+
+.remove-image-btn:hover {
+  text-decoration: underline;
+}
+
+/* Restaurant menu table */
+.menu-table-panel {
+  min-width: 0;
+  width: 100%;
 }
 
 .menu-table-heading h3 {
   font-size: 17px;
-  margin-bottom: 7px;
-}
-
-.menu-table-heading p {
-  color: #888;
-  font-size: 12px;
 }
 
 .menu-table-heading input {
-  padding: 11px 14px;
-  border: 1px solid #dddddd;
-  border-radius: 6px;
-  min-width: 220px;
-  outline-color: #b87845;
+  max-width: 240px;
 }
 
-/* Category filter */
 .menu-filters {
   display: flex;
   align-items: center;
@@ -167,40 +234,75 @@
 }
 
 .menu-filters select {
-  padding: 10px 13px;
-  border: 1px solid #dddddd;
-  border-radius: 6px;
-  background: white;
-  color: #333;
+  width: auto;
+  min-width: 140px;
 }
 
-/* Table */
+/* Table layout */
+.table-wrapper {
+  width: 100%;
+  overflow-x: auto;
+}
+
 .menu-table-panel table {
   width: 100%;
   border-collapse: collapse;
   margin-top: 15px;
   text-align: left;
   font-size: 13px;
+  min-width: 750px;
 }
 
 .menu-table-panel th {
   padding: 15px 12px;
   color: #888;
   font-weight: 600;
-  border-bottom: 1px solid #eeeeee;
+  border-bottom: 1px solid #eee;
+  white-space: nowrap;
 }
 
 .menu-table-panel td {
-  padding: 17px 12px;
-  border-bottom: 1px solid #eeeeee;
-  color: #444;
+  padding: 16px 12px;
+  border-bottom: 1px solid #eee;
+  vertical-align: middle;
 }
 
 .menu-table-panel tbody tr:hover {
   background: #fcf8f5;
 }
 
-/* Availability badges */
+/* Meal images */
+.meal-thumbnail,
+.meal-placeholder {
+  width: 55px;
+  height: 55px;
+  border-radius: 8px;
+  flex-shrink: 0;
+}
+
+.meal-thumbnail {
+  object-fit: cover;
+  display: block;
+  border: 1px solid #eee;
+}
+
+.meal-placeholder {
+  background: #f7eee7;
+  display: grid;
+  place-items: center;
+  font-size: 23px;
+}
+
+/* Meal descriptions */
+.meal-description {
+  font-size: 11px;
+  color: #888;
+  margin-top: 5px;
+  max-width: 230px;
+  line-height: 1.5;
+}
+
+/* Availability status */
 .menu-table-panel .status {
   display: inline-block;
   padding: 7px 11px;
@@ -219,7 +321,7 @@
   color: #7955b3;
 }
 
-/* Meal actions */
+/* Table actions */
 .meal-actions {
   display: flex;
   align-items: center;
@@ -227,10 +329,10 @@
   flex-wrap: wrap;
 }
 
-.table-action,
-.delete-action {
+.meal-actions button {
   background: transparent;
   border: none;
+  padding: 4px;
   font-size: 12px;
   cursor: pointer;
 }
@@ -243,20 +345,29 @@
   color: #c44b4b;
 }
 
-.table-action:hover,
-.delete-action:hover {
+.meal-actions button:hover {
   text-decoration: underline;
 }
 
 /* Responsive design */
-@media (max-width: 850px) {
-  .menu-summary {
-    grid-template-columns: repeat(2, 1fr);
+@media (max-width: 1100px) {
+  .menu-page {
+    width: 100%;
+    min-width: 0;
   }
 
-  .menu-table-heading {
-    align-items: flex-start;
-    flex-direction: column;
+  .menu-table-panel {
+    overflow: hidden;
+  }
+}
+
+@media (max-width: 850px) {
+  .menu-summary {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .meal-form {
+    max-width: 100%;
   }
 }
 
@@ -265,9 +376,18 @@
     grid-template-columns: 1fr;
   }
 
-  .menu-heading {
+  .menu-heading,
+  .menu-table-heading {
     align-items: flex-start;
     flex-direction: column;
+  }
+
+  .menu-heading .add-meal-btn {
+    width: 100%;
+  }
+
+  .menu-table-heading input {
+    max-width: 100%;
   }
 
   .menu-filters {
@@ -275,15 +395,23 @@
     flex-direction: column;
   }
 
+  .menu-filters select {
+    width: 100%;
+  }
+
   .menu-table-panel {
     padding: 14px;
   }
 
-  .table-wrapper {
-    overflow-x: auto;
+  .meal-form {
+    padding: 16px;
   }
 
-  .meal-actions {
-    min-width: 150px;
+  .form-actions {
+    flex-direction: column;
+  }
+
+  .form-actions button {
+    width: 100%;
   }
 }
