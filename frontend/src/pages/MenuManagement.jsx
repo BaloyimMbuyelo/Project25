@@ -1,54 +1,8 @@
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import './MenuManagement.css';
 
-const initialMeals = [
-  {
-    id: 1,
-    name: 'Grilled Chicken',
-    description: 'Tender grilled chicken served with seasonal vegetables.',
-    category: 'Main Course',
-    price: 195,
-    image: '/images/restaurant-pictures/grilled-chicken.jpeg',
-    available: true,
-  },
-  {
-    id: 2,
-    name: 'Beef Burger',
-    description: 'Juicy beef patty served with fresh lettuce and tomato.',
-    category: 'Main Course',
-    price: 120,
-    image: '/images/restaurant-pictures/beef-burger.jpeg',
-    available: true,
-  },
-  {
-    id: 3,
-    name: 'Creamy Pasta',
-    description: 'Pasta prepared in a rich and creamy sauce.',
-    category: 'Main Course',
-    price: 145,
-    image: '/images/restaurant-pictures/creamy-pasta.jpeg',
-    available: true,
-  },
-  {
-    id: 4,
-    name: 'Garden Salad',
-    description: 'Fresh seasonal vegetables with house dressing.',
-    category: 'Starters',
-    price: 95,
-    image: '/images/restaurant-pictures/green-salad.jpeg',
-    available: false,
-  },
-  {
-    id: 5,
-    name: 'Chocolate Cake',
-    description: 'Rich chocolate cake served as a dessert.',
-    category: 'Desserts',
-    price: 75,
-    image: '/images/restaurant-pictures/chocolate-cake.jpeg',
-    available: true,
-  },
-];
+const API_URL = 'http://localhost:5000/api/menu';
 
 const emptyForm = {
   name: '',
@@ -59,12 +13,15 @@ const emptyForm = {
 };
 
 function MenuManagement() {
-  const [meals, setMeals] = useState(initialMeals);
+  const [meals, setMeals] = useState([]);
   const [search, setSearch] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('All');
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [form, setForm] = useState(emptyForm);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [saving, setSaving] = useState(false);
 
   const categories = [
     'All',
@@ -74,11 +31,42 @@ function MenuManagement() {
     'Drinks',
   ];
 
-  /* Search and category filtering */
+  // Load menu items from MySQL through the backend API
+  async function fetchMeals() {
+    try {
+      setError('');
+
+      const response = await fetch(API_URL);
+
+      if (!response.ok) {
+        throw new Error('Unable to retrieve menu items.');
+      }
+
+      const data = await response.json();
+
+      const formattedMeals = data.map((meal) => ({
+        ...meal,
+        price: Number(meal.price),
+        available: Boolean(meal.available),
+      }));
+
+      setMeals(formattedMeals);
+    } catch (err) {
+      setError(err.message || 'Could not connect to the backend.');
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    fetchMeals();
+  }, []);
+
+  // Search and category filtering
   const filteredMeals = meals.filter((meal) => {
     const matchesSearch =
       meal.name.toLowerCase().includes(search.toLowerCase()) ||
-      meal.description.toLowerCase().includes(search.toLowerCase());
+      (meal.description || '').toLowerCase().includes(search.toLowerCase());
 
     const matchesCategory =
       categoryFilter === 'All' ||
@@ -87,20 +75,20 @@ function MenuManagement() {
     return matchesSearch && matchesCategory;
   });
 
-  /* Open add form */
+  // Open add form
   function openAddForm() {
     setEditingId(null);
     setForm({ ...emptyForm });
     setShowForm(true);
   }
 
-  /* Open edit form */
+  // Open edit form
   function openEditForm(meal) {
     setEditingId(meal.id);
 
     setForm({
       name: meal.name,
-      description: meal.description,
+      description: meal.description || '',
       category: meal.category,
       price: String(meal.price),
       image: meal.image || '',
@@ -109,14 +97,14 @@ function MenuManagement() {
     setShowForm(true);
   }
 
-  /* Close form */
+  // Close form
   function closeForm() {
     setShowForm(false);
     setEditingId(null);
     setForm({ ...emptyForm });
   }
 
-  /* Remove image URL */
+  // Remove image URL
   function removeImage() {
     setForm((current) => ({
       ...current,
@@ -124,8 +112,8 @@ function MenuManagement() {
     }));
   }
 
-  /* Add or update meal */
-  function handleSubmit(e) {
+  // Add or update meal in MySQL
+  async function handleSubmit(e) {
     e.preventDefault();
 
     const price = Number(form.price);
@@ -140,10 +128,18 @@ function MenuManagement() {
       return;
     }
 
-    if (imageUrl && !/^https?:\/\/\S+$/i.test(imageUrl) && !imageUrl.startsWith('/')) {
+    if (
+      imageUrl &&
+      !/^https?:\/\/\S+$/i.test(imageUrl) &&
+      !imageUrl.startsWith('/')
+    ) {
       alert('Please enter a valid image URL or local image path.');
       return;
     }
+
+    const existingMeal = meals.find(
+      (meal) => meal.id === editingId
+    );
 
     const mealData = {
       name: form.name.trim(),
@@ -151,47 +147,100 @@ function MenuManagement() {
       category: form.category,
       price,
       image: imageUrl,
+      available: editingId !== null
+        ? existingMeal.available
+        : true,
     };
 
-    if (editingId !== null) {
-      setMeals((current) =>
-        current.map((meal) =>
-          meal.id === editingId
-            ? { ...meal, ...mealData }
-            : meal
-        )
-      );
-    } else {
-      setMeals((current) => [
-        ...current,
-        {
-          id: Date.now(),
-          ...mealData,
-          available: true,
+    try {
+      setSaving(true);
+      setError('');
+
+      const url = editingId !== null
+        ? `${API_URL}/${editingId}`
+        : API_URL;
+
+      const method = editingId !== null ? 'PUT' : 'POST';
+
+      const response = await fetch(url, {
+        method,
+        headers: {
+          'Content-Type': 'application/json',
         },
-      ]);
-    }
+        body: JSON.stringify(mealData),
+      });
 
-    closeForm();
-  }
+      const result = await response.json();
 
-  /* Enable or disable meal */
-  function toggleAvailability(id) {
-    setMeals((current) =>
-      current.map((meal) =>
-        meal.id === id
-          ? { ...meal, available: !meal.available }
-          : meal
-      )
-    );
-  }
+      if (!response.ok) {
+        throw new Error(result.message || 'Unable to save menu item.');
+      }
 
-  /* Delete meal */
-  function deleteMeal(id) {
-    if (window.confirm('Are you sure you want to delete this menu item?')) {
-      setMeals((current) =>
-        current.filter((meal) => meal.id !== id)
+      await fetchMeals();
+      closeForm();
+
+      alert(
+        editingId !== null
+          ? 'Menu item updated successfully!'
+          : 'Menu item added successfully!'
       );
+    } catch (err) {
+      alert(err.message || 'An error occurred while saving the meal.');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  // Enable or disable meal in MySQL
+  async function toggleAvailability(id) {
+    const meal = meals.find((item) => item.id === id);
+
+    if (!meal) return;
+
+    try {
+      const response = await fetch(`${API_URL}/${id}/availability`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          available: !meal.available,
+        }),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.message || 'Unable to update availability.');
+      }
+
+      await fetchMeals();
+    } catch (err) {
+      alert(err.message || 'Could not update meal availability.');
+    }
+  }
+
+  // Delete meal from MySQL
+  async function deleteMeal(id) {
+    if (
+      window.confirm('Are you sure you want to delete this menu item?')
+    ) {
+      try {
+        const response = await fetch(`${API_URL}/${id}`, {
+          method: 'DELETE',
+        });
+
+        const result = await response.json();
+
+        if (!response.ok) {
+          throw new Error(result.message || 'Unable to delete menu item.');
+        }
+
+        await fetchMeals();
+        alert('Menu item deleted successfully!');
+      } catch (err) {
+        alert(err.message || 'Could not delete menu item.');
+      }
     }
   }
 
@@ -344,14 +393,23 @@ function MenuManagement() {
 
           {/* Form Actions */}
           <div className="form-actions">
-            <button type="submit" className="add-meal-btn">
-              {editingId !== null ? 'Update Meal' : 'Save Meal'}
+            <button
+              type="submit"
+              className="add-meal-btn"
+              disabled={saving}
+            >
+              {saving
+                ? 'Saving...'
+                : editingId !== null
+                  ? 'Update Meal'
+                  : 'Save Meal'}
             </button>
 
             <button
               type="button"
               className="cancel-btn"
               onClick={closeForm}
+              disabled={saving}
             >
               Cancel
             </button>
@@ -409,85 +467,93 @@ function MenuManagement() {
             </thead>
 
             <tbody>
-              {filteredMeals.map((meal) => (
-                <tr key={meal.id}>
-                  {/* Meal Image */}
-                  <td>
-                    {meal.image ? (
-                      <img
-                        className="meal-thumbnail"
-                        src={meal.image}
-                        alt={meal.name}
-                        onError={(e) => {
-                          e.currentTarget.style.display = 'none';
-                        }}
-                      />
-                    ) : (
-                      <div className="meal-placeholder">
-                        🍽️
-                      </div>
-                    )}
-                  </td>
-
-                  {/* Meal Details */}
-                  <td>
-                    <strong>{meal.name}</strong>
-                    <p className="meal-description">
-                      {meal.description}
-                    </p>
-                  </td>
-
-                  <td>{meal.category}</td>
-                  <td>R {meal.price.toFixed(2)}</td>
-
-                  {/* Availability */}
-                  <td>
-                    <span
-                      className={`status ${
-                        meal.available ? 'completed' : 'pending'
-                      }`}
-                    >
-                      {meal.available ? 'Available' : 'Unavailable'}
-                    </span>
-                  </td>
-
-                  {/* Actions */}
-                  <td>
-                    <div className="meal-actions">
-                      <button
-                        type="button"
-                        className="table-action"
-                        onClick={() => openEditForm(meal)}
-                      >
-                        Edit
-                      </button>
-
-                      <button
-                        type="button"
-                        className="table-action"
-                        onClick={() => toggleAvailability(meal.id)}
-                      >
-                        {meal.available ? 'Disable' : 'Enable'}
-                      </button>
-
-                      <button
-                        type="button"
-                        className="delete-action"
-                        onClick={() => deleteMeal(meal.id)}
-                      >
-                        Delete
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-
-              {filteredMeals.length === 0 && (
+              {loading ? (
                 <tr>
-                  <td colSpan="6">
-                    No matching meals found.
-                  </td>
+                  <td colSpan="6">Loading menu items...</td>
                 </tr>
+              ) : error ? (
+                <tr>
+                  <td colSpan="6">{error}</td>
+                </tr>
+              ) : (
+                <>
+                  {filteredMeals.map((meal) => (
+                    <tr key={meal.id}>
+                      <td>
+                        {meal.image ? (
+                          <img
+                            className="meal-thumbnail"
+                            src={meal.image}
+                            alt={meal.name}
+                            onError={(e) => {
+                              e.currentTarget.style.display = 'none';
+                            }}
+                          />
+                        ) : (
+                          <div className="meal-placeholder">
+                            🍽️
+                          </div>
+                        )}
+                      </td>
+
+                      <td>
+                        <strong>{meal.name}</strong>
+                        <p className="meal-description">
+                          {meal.description}
+                        </p>
+                      </td>
+
+                      <td>{meal.category}</td>
+                      <td>R {meal.price.toFixed(2)}</td>
+
+                      <td>
+                        <span
+                          className={`status ${
+                            meal.available ? 'completed' : 'pending'
+                          }`}
+                        >
+                          {meal.available ? 'Available' : 'Unavailable'}
+                        </span>
+                      </td>
+
+                      <td>
+                        <div className="meal-actions">
+                          <button
+                            type="button"
+                            className="table-action"
+                            onClick={() => openEditForm(meal)}
+                          >
+                            Edit
+                          </button>
+
+                          <button
+                            type="button"
+                            className="table-action"
+                            onClick={() => toggleAvailability(meal.id)}
+                          >
+                            {meal.available ? 'Disable' : 'Enable'}
+                          </button>
+
+                          <button
+                            type="button"
+                            className="delete-action"
+                            onClick={() => deleteMeal(meal.id)}
+                          >
+                            Delete
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+
+                  {filteredMeals.length === 0 && (
+                    <tr>
+                      <td colSpan="6">
+                        No matching meals found.
+                      </td>
+                    </tr>
+                  )}
+                </>
               )}
             </tbody>
           </table>
