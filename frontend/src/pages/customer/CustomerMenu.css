@@ -1,0 +1,158 @@
+
+.customer-menu {
+  width: 100%;
+}
+
+.customer-menu-header {
+  background: white;
+  padding: 28px;
+  border-radius: 10px;
+  border-left: 5px solid #b87845;
+  margin-bottom: 25px;
+}
+
+.customer-menu-header h2 {
+  font-size: 25px;
+  margin: 8px 0;
+}
+
+.customer-menu-header > p:last-child {
+  color: #888;
+  font-size: 13px;
+}
+
+.customer-menu-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 20px;
+}
+
+.customer-menu-card {
+  background: white;
+  border: 1px solid #eee;
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.customer-menu-image,
+.customer-menu-image-placeholder {
+  width: 100%;
+  height: 190px;
+  object-fit: cover;
+}
+
+.customer-menu-image-placeholder {
+  background: #f7eee7;
+  color: #b87845;
+  display: grid;
+  place-items: center;
+  font-weight: bold;
+}
+
+.customer-menu-details {
+  padding: 18px;
+}
+
+.customer-menu-category {
+  color: #b87845;
+  font-size: 11px;
+}
+
+.customer-menu-details h3 {
+  margin: 10px 0;
+  font-size: 17px;
+}
+
+.customer-menu-details p {
+  color: #888;
+  font-size: 12px;
+  line-height: 1.6;
+  min-height: 38px;
+}
+
+.customer-menu-bottom {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 18px;
+  gap: 10px;
+}
+
+.customer-menu-bottom strong {
+  font-size: 16px;
+}
+
+.available-label {
+  color: #31834a;
+  background: #e8f5ec;
+  padding: 6px 9px;
+  border-radius: 20px;
+  font-size: 10px;
+}
+
+.menu-message,
+.menu-error {
+  padding: 20px;
+  background: white;
+  border-radius: 8px;
+  color: #777;
+}
+
+.menu-error {
+  color: #a33;
+}
+
+.menu-error button {
+  margin-left: 15px;
+  padding: 7px 12px;
+  border: 1px solid #b87845;
+  background: white;
+  color: #b87845;
+  border-radius: 5px;
+}
+
+@media (max-width: 900px) {
+  .customer-menu-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 550px) {
+  .customer-menu-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+
+.add-to-cart-button {
+  width: 100%;
+  margin-top: 15px;
+  padding: 11px 16px;
+  background: #b87845;
+  color: #ffffff;
+  border: none;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+.add-to-cart-button:hover {
+  background: #965d35;
+}
+
+.customer-cart-link {
+  display: inline-block;
+  padding: 10px 16px;
+  background: #b87845;
+  color: #ffffff;
+  text-decoration: none;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.customer-cart-link:hover {
+  background: #965d35;
+}

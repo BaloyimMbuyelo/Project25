@@ -464,3 +464,16 @@ footer {
     flex-direction: column;
   }
 }
+
+/* React Router navigation link styling */
+.nav-item,
+.nav-item:visited {
+  text-decoration: none;
+  color: #c5c5c5;
+}
+
+.nav-item.active,
+.nav-item.active:visited {
+  color: #ffffff;
+  text-decoration: none;
+}

@@ -11,6 +11,8 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
+app.use('/images', express.static('../frontend/public/images'));
+
 app.get('/', (req, res) => {
     res.json({
         message: 'Ubuntu Bistro Management System API is running!'
