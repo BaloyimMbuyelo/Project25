@@ -1,0 +1,370 @@
+
+.orders-page {
+  width: 100%;
+  color: #292929;
+}
+
+.orders-heading,
+.orders-table-heading,
+.orders-detail-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 15px;
+  margin-bottom: 22px;
+}
+
+.orders-heading h2 {
+  font-size: 21px;
+  margin-bottom: 7px;
+}
+
+.orders-heading p,
+.orders-table-heading p,
+.orders-detail-heading p {
+  color: #888;
+  font-size: 13px;
+}
+
+.orders-primary-btn {
+  background: #b87845;
+  border: 1px solid #b87845;
+  color: white;
+  padding: 11px 16px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.orders-primary-btn:hover {
+  background: #9e6337;
+}
+
+.orders-demo-note {
+  padding: 13px 16px;
+  background: #fff6e9;
+  border: 1px solid #f0dfc5;
+  border-radius: 7px;
+  color: #76552e;
+  font-size: 12px;
+  margin-bottom: 20px;
+  line-height: 1.6;
+}
+
+.orders-summary {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 16px;
+  margin-bottom: 22px;
+}
+
+.orders-summary-card {
+  background: white;
+  border: 1px solid #eee;
+  border-radius: 9px;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+}
+
+.orders-summary-card span {
+  color: #888;
+  font-size: 12px;
+}
+
+.orders-summary-card strong {
+  font-size: 27px;
+}
+
+.orders-summary-card small {
+  color: #999;
+  font-size: 11px;
+}
+
+.orders-form,
+.orders-detail-panel,
+.orders-table-panel {
+  background: white;
+  border: 1px solid #eee;
+  border-radius: 9px;
+  padding: 22px;
+  margin-bottom: 22px;
+}
+
+.orders-form h3,
+.orders-detail-panel h3,
+.orders-table-heading h3 {
+  font-size: 16px;
+  margin-bottom: 7px;
+}
+
+.orders-form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 17px;
+  margin-top: 20px;
+}
+
+.orders-form-grid > div,
+.orders-item-row > div {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.orders-form label,
+.orders-item-row label {
+  font-size: 12px;
+  font-weight: 600;
+  color: #555;
+}
+
+.orders-form input,
+.orders-form select,
+.orders-filters input,
+.orders-filters select,
+.orders-status-select {
+  width: 100%;
+  padding: 11px 12px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  background: white;
+  color: #333;
+  font: inherit;
+  font-size: 12px;
+  min-width: 0;
+}
+
+.orders-form input:focus,
+.orders-form select:focus,
+.orders-filters input:focus,
+.orders-filters select:focus {
+  outline: none;
+  border-color: #b87845;
+  box-shadow: 0 0 0 2px rgba(184, 120, 69, 0.12);
+}
+
+.orders-items-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 25px;
+  margin-bottom: 15px;
+}
+
+.orders-items-heading h4 {
+  font-size: 13px;
+}
+
+.orders-add-item-btn {
+  background: #fff6ef;
+  border: 1px solid #e7cbb4;
+  color: #a96d3e;
+  padding: 9px 12px;
+  border-radius: 6px;
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.orders-item-row {
+  display: grid;
+  grid-template-columns: 2fr 1fr 1fr auto;
+  gap: 13px;
+  align-items: end;
+  padding: 13px 0;
+  border-bottom: 1px solid #eee;
+}
+
+.orders-item-price strong {
+  padding: 11px 0;
+  font-size: 13px;
+}
+
+.orders-remove-item {
+  background: transparent;
+  border: 0;
+  color: #c74747;
+  font-size: 11px;
+  padding: 11px 3px;
+  cursor: pointer;
+}
+
+.orders-form-total {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 18px 0;
+  margin-top: 12px;
+  border-top: 1px solid #eee;
+  font-size: 13px;
+}
+
+.orders-form-total strong {
+  font-size: 20px;
+  color: #b87845;
+}
+
+.orders-form-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.orders-cancel-btn,
+.orders-reset-btn {
+  background: white;
+  color: #666;
+  border: 1px solid #ddd;
+  padding: 10px 15px;
+  border-radius: 6px;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.orders-table-heading {
+  margin-bottom: 20px;
+}
+
+.orders-filters {
+  display: grid;
+  grid-template-columns: 2fr 1fr 1fr;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.orders-table {
+  min-width: 1050px;
+}
+
+.orders-table th,
+.orders-table td {
+  padding: 13px 10px;
+  font-size: 11px;
+}
+
+.orders-status {
+  display: inline-block;
+  padding: 6px 9px;
+  border-radius: 20px;
+  font-size: 10px;
+  white-space: nowrap;
+}
+
+.orders-status.pending {
+  background: #fff1dd;
+  color: #a66b15;
+}
+
+.orders-status.preparing {
+  background: #e9efff;
+  color: #4566b1;
+}
+
+.orders-status.ready {
+  background: #e6f4f1;
+  color: #247d69;
+}
+
+.orders-status.completed {
+  background: #e8f5ec;
+  color: #31834a;
+}
+
+.orders-status.cancelled {
+  background: #fce9e9;
+  color: #b63e3e;
+}
+
+.orders-status-select {
+  padding: 7px 8px;
+  font-size: 10px;
+  min-width: 105px;
+}
+
+.orders-row-actions {
+  display: flex;
+  gap: 9px;
+  align-items: center;
+}
+
+.orders-row-actions button {
+  border: 0;
+  background: transparent;
+  color: #b87845;
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.orders-row-actions button:hover {
+  text-decoration: underline;
+}
+
+.orders-row-actions .orders-delete-btn {
+  color: #c74747;
+}
+
+.orders-empty {
+  text-align: center;
+  color: #888;
+  padding: 25px !important;
+}
+
+.orders-detail-heading {
+  margin-bottom: 18px;
+}
+
+.orders-detail-panel > p {
+  font-size: 12px;
+  margin: 10px 0;
+  color: #666;
+}
+
+.orders-detail-panel h4 {
+  font-size: 13px;
+  margin-top: 20px;
+}
+
+.orders-detail-item {
+  display: flex;
+  justify-content: space-between;
+  padding: 12px 0;
+  border-bottom: 1px solid #eee;
+  font-size: 12px;
+}
+
+.orders-detail-item strong {
+  color: #555;
+}
+
+@media (max-width: 1050px) {
+  .orders-summary {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 650px) {
+  .orders-heading,
+  .orders-table-heading,
+  .orders-detail-heading {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .orders-summary {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .orders-form-grid,
+  .orders-filters,
+  .orders-item-row {
+    grid-template-columns: 1fr;
+  }
+
+  .orders-form,
+  .orders-table-panel,
+  .orders-detail-panel {
+    padding: 15px;
+  }
+}

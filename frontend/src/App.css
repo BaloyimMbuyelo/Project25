@@ -21,6 +21,10 @@ button {
   min-height: 100vh;
 }
 
+/* =========================
+   SIDEBAR
+========================= */
+
 .sidebar {
   width: 250px;
   background: #252523;
@@ -71,6 +75,7 @@ nav {
 }
 
 .nav-item {
+  width: 100%;
   border: 0;
   background: transparent;
   color: #c5c5c5;
@@ -80,19 +85,33 @@ nav {
   display: flex;
   align-items: center;
   gap: 14px;
+  transition: background 0.2s ease, color 0.2s ease;
 }
 
-.nav-item:hover,
+/* Hover effect - subtle background only */
+.nav-item:hover:not(.active) {
+  background: #383632;
+  color: #ffffff;
+}
+
+/* Only the currently selected page is orange */
 .nav-item.active {
   background: #b87845;
-  color: white;
+  color: #ffffff;
+}
+
+.nav-item:focus-visible {
+  outline: 2px solid #e2b18d;
+  outline-offset: 2px;
 }
 
 .nav-icon {
   width: 20px;
   text-align: center;
+  flex-shrink: 0;
 }
 
+/* Sidebar user profile */
 .sidebar-bottom {
   display: flex;
   align-items: center;
@@ -113,7 +132,12 @@ nav {
   color: white;
   font-size: 12px;
   font-weight: bold;
+  flex-shrink: 0;
 }
+
+/* =========================
+   MAIN CONTENT
+========================= */
 
 .main-content {
   flex: 1;
@@ -149,6 +173,10 @@ nav {
   color: #777;
 }
 
+/* =========================
+   DASHBOARD WELCOME
+========================= */
+
 .welcome {
   background: #fff;
   border: 1px solid #eee;
@@ -183,6 +211,10 @@ nav {
   font-size: 42px;
   color: #b87845;
 }
+
+/* =========================
+   DASHBOARD STATISTICS
+========================= */
 
 .stats-grid {
   display: grid;
@@ -224,6 +256,10 @@ nav {
   font-size: 12px;
 }
 
+/* =========================
+   DASHBOARD CONTENT
+========================= */
+
 .content-grid {
   display: grid;
   grid-template-columns: 2fr 1fr;
@@ -256,6 +292,14 @@ nav {
   font-size: 12px;
 }
 
+.outline-button:hover {
+  background: #fbf1e9;
+}
+
+/* =========================
+   TABLES
+========================= */
+
 .table-wrapper {
   overflow-x: auto;
 }
@@ -280,6 +324,10 @@ td {
   border-bottom: 1px solid #f0f0f0;
 }
 
+/* =========================
+   ORDER STATUS
+========================= */
+
 .status {
   padding: 6px 9px;
   border-radius: 20px;
@@ -302,6 +350,10 @@ td {
   color: #7955b3;
 }
 
+/* =========================
+   QUICK ACCESS
+========================= */
+
 .quick-panel > p {
   margin-bottom: 20px;
 }
@@ -309,6 +361,7 @@ td {
 .quick-link {
   display: flex;
   justify-content: space-between;
+  align-items: center;
   width: 100%;
   padding: 15px 5px;
   background: white;
@@ -320,7 +373,12 @@ td {
 
 .quick-link:hover {
   color: #b87845;
+  background: #fcf8f4;
 }
+
+/* =========================
+   FOOTER
+========================= */
 
 footer {
   display: flex;
@@ -328,7 +386,12 @@ footer {
   color: #aaa;
   font-size: 11px;
   margin-top: 30px;
+  gap: 12px;
 }
+
+/* =========================
+   RESPONSIVE TABLET
+========================= */
 
 @media (max-width: 1050px) {
   .stats-grid {
@@ -339,6 +402,10 @@ footer {
     grid-template-columns: 1fr;
   }
 }
+
+/* =========================
+   RESPONSIVE MOBILE
+========================= */
 
 @media (max-width: 650px) {
   .sidebar {
@@ -351,13 +418,13 @@ footer {
   }
 
   .brand > div:last-child,
-  .nav-heading,
-  .nav-item:not(.active) {
-    font-size: 0;
+  .nav-heading {
+    display: none;
   }
 
   .nav-item {
     justify-content: center;
+    padding: 13px 5px;
     font-size: 0;
   }
 
@@ -387,5 +454,13 @@ footer {
 
   .date-label {
     display: none;
+  }
+
+  .topbar h1 {
+    font-size: 21px;
+  }
+
+  footer {
+    flex-direction: column;
   }
 }

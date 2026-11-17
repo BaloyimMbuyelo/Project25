@@ -1,8 +1,13 @@
 
 import { useState } from 'react';
 import './App.css';
+
 import MenuManagement from './pages/MenuManagement';
 import InventoryManagement from './pages/InventoryManagement';
+import OrdersManagement from './pages/OrdersManagement';
+import ReservationsManagement from './pages/ReservationsManagement';
+import PaymentsManagement from './pages/PaymentsManagement';
+import ReportsManagement from './pages/ReportsManagement';
 
 // Main navigation
 const menuItems = [
@@ -71,7 +76,9 @@ function App() {
           <p className="eyebrow">
             UBUNTU BISTRO MANAGEMENT SYSTEM
           </p>
+
           <h2>Welcome back, Administrator!</h2>
+
           <p>
             Here's an overview of your restaurant operations.
           </p>
@@ -108,6 +115,7 @@ function App() {
             </div>
 
             <button
+              type="button"
               className="outline-button"
               onClick={() => handleNavigation('Orders')}
             >
@@ -134,6 +142,7 @@ function App() {
                     <td>{order.customer}</td>
                     <td>{order.item}</td>
                     <td>{order.amount}</td>
+
                     <td>
                       <span
                         className={`status ${order.status.toLowerCase()}`}
@@ -157,8 +166,11 @@ function App() {
             'Reservations',
             'Menu Management',
             'Inventory',
+            'Payments',
+            'Reports',
           ].map((item) => (
             <button
+              type="button"
               className="quick-link"
               key={item}
               onClick={() => handleNavigation(item)}
@@ -192,11 +204,18 @@ function App() {
           The {page} module is currently under development.
         </p>
 
-        <p style={{ marginTop: '8px', color: '#888', fontSize: '13px' }}>
+        <p
+          style={{
+            marginTop: '8px',
+            color: '#888',
+            fontSize: '13px',
+          }}
+        >
           This module will be implemented as part of UBMS Release 1.
         </p>
 
         <button
+          type="button"
           className="outline-button"
           style={{ marginTop: '22px' }}
           onClick={() => handleNavigation('Dashboard')}
@@ -287,9 +306,30 @@ function App() {
           <InventoryManagement />
         )}
 
+        {activePage === 'Orders' && (
+          <OrdersManagement />
+        )}
+
+        {activePage === 'Reservations' && (
+          <ReservationsManagement />
+        )}
+
+        {activePage === 'Payments' && (
+          <PaymentsManagement />
+        )}
+
+        {activePage === 'Reports' && (
+          <ReportsManagement />
+        )}
+
+        {/* Only show placeholders for unfinished modules */}
         {activePage !== 'Dashboard' &&
           activePage !== 'Menu Management' &&
-          activePage !== 'Inventory' && (
+          activePage !== 'Inventory' &&
+          activePage !== 'Orders' &&
+          activePage !== 'Reservations' &&
+          activePage !== 'Payments' &&
+          activePage !== 'Reports' && (
             <ComingSoon page={activePage} />
           )}
 
