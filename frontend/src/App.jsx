@@ -2,6 +2,7 @@
 import { useState } from 'react';
 import './App.css';
 import MenuManagement from './pages/MenuManagement';
+import InventoryManagement from './pages/InventoryManagement';
 
 // Main navigation
 const menuItems = [
@@ -171,7 +172,7 @@ function App() {
     </>
   );
 
-  // Temporary placeholder for modules not yet developed
+  // Placeholder for modules still under development
   const ComingSoon = ({ page }) => (
     <section className="panel" style={{ padding: '35px' }}>
       <div style={{ textAlign: 'center', padding: '35px 10px' }}>
@@ -227,6 +228,7 @@ function App() {
           {menuItems.map((item) => (
             <button
               key={item.name}
+              type="button"
               className={`nav-item ${
                 activePage === item.name ? 'active' : ''
               }`}
@@ -281,8 +283,13 @@ function App() {
           <MenuManagement />
         )}
 
+        {activePage === 'Inventory' && (
+          <InventoryManagement />
+        )}
+
         {activePage !== 'Dashboard' &&
-          activePage !== 'Menu Management' && (
+          activePage !== 'Menu Management' &&
+          activePage !== 'Inventory' && (
             <ComingSoon page={activePage} />
           )}
 
