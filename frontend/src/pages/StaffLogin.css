@@ -1,0 +1,138 @@
+.staff-login-page {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px 16px;
+  background: #f0f0ee;
+}
+
+.staff-login-card {
+  width: 100%;
+  max-width: 400px;
+  background: white;
+  border: 1px solid #e4e4e0;
+  border-radius: 18px;
+  padding: 36px 32px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.staff-login-logo {
+  width: 56px;
+  height: 56px;
+  margin: 0 auto 6px;
+  border-radius: 12px;
+  background: #252523;
+  color: #e6b17e;
+  display: grid;
+  place-items: center;
+  font-weight: 700;
+  letter-spacing: 1px;
+}
+
+.staff-login-card h1 {
+  text-align: center;
+  font-size: 22px;
+}
+
+.staff-login-subtitle {
+  text-align: center;
+  color: #777;
+  font-size: 13px;
+  margin-bottom: 14px;
+}
+
+.staff-login-error {
+  background: #fdecec;
+  border: 1px solid #e7a3a3;
+  color: #9b2c2c;
+  border-radius: 7px;
+  padding: 10px 12px;
+  font-size: 13px;
+  margin-bottom: 6px;
+}
+
+.staff-login-card label {
+  font-size: 13px;
+  font-weight: 600;
+  margin-top: 6px;
+}
+
+.staff-login-card label span {
+  color: #c0392b;
+}
+
+.staff-login-card input {
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  padding: 11px 12px;
+  font-size: 14px;
+  min-height: 44px;
+}
+
+.staff-login-card input:focus {
+  outline: 2px solid #b87845;
+  outline-offset: 1px;
+  border-color: #b87845;
+}
+
+.staff-login-card button {
+  margin-top: 16px;
+  min-height: 44px;
+  border: none;
+  border-radius: 6px;
+  background: #252523;
+  color: white;
+  font-weight: 600;
+}
+
+.staff-login-card button:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}
+
+.staff-login-footer {
+  text-align: center;
+  font-size: 13px;
+  color: #666;
+  margin-top: 12px;
+}
+
+.staff-login-footer a {
+  color: #8a5a2f;
+}
+
+/* Not-authorised state (wireframe page 09, state 7) */
+.not-authorised {
+  background: white;
+  border: 1px solid #eee;
+  border-radius: 10px;
+  padding: 48px 24px;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+
+.not-authorised-icon {
+  font-size: 32px;
+}
+
+.not-authorised p {
+  color: #777;
+  font-size: 14px;
+}
+
+.not-authorised-link {
+  margin-top: 10px;
+  border: 1px solid #b87845;
+  color: #8a5a2f;
+  border-radius: 6px;
+  padding: 10px 16px;
+  text-decoration: none;
+  font-size: 13px;
+  font-weight: 600;
+}
