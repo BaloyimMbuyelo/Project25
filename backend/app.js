@@ -2,6 +2,7 @@ const path = require('path');
 const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
+const cookieParser = require('cookie-parser');
 require('dotenv').config({ path: path.join(__dirname, '.env'), quiet: true });
 
 const menuRoutes = require('./routes/menuRoutes');
@@ -9,6 +10,9 @@ const authRoutes = require('./routes/authRoutes');
 const reservationRoutes = require('./routes/reservationRoutes');
 const inventoryRoutes = require('./routes/inventoryRoutes');
 const paymentRoutes = require('./routes/paymentRoutes');
+const orderRoutes = require('./routes/orderRoutes');
+const reportRoutes = require('./routes/reportRoutes');
+const { usersRouter, auditRouter } = require('./routes/userRoutes');
 const errorHandler = require('./middleware/errorHandler');
 
 const {
@@ -17,6 +21,10 @@ const {
 } = require('./middleware/authMiddleware');
 
 const app = express();
+
+// Nginx runs on the same host (System Design 4.3.3), so trust only a
+// loopback proxy when reading the client IP (rate limiting, audit log).
+app.set('trust proxy', process.env.TRUST_PROXY || 'loopback');
 
 // Allowed browser origins (comma-separated). Defaults to the Vite dev server.
 const allowedOrigins = (process.env.CLIENT_ORIGIN || 'http://localhost:5173,http://127.0.0.1:5173')
@@ -29,8 +37,10 @@ app.use(helmet({
     // The React app on another port loads menu images from this server.
     crossOriginResourcePolicy: { policy: 'cross-origin' }
 }));
-app.use(cors({ origin: allowedOrigins }));
+// credentials: true lets the browser send the httpOnly login cookie.
+app.use(cors({ origin: allowedOrigins, credentials: true }));
 app.use(express.json({ limit: '100kb' }));
+app.use(cookieParser());
 
 // Serve frontend restaurant images (resolved from this file, not the cwd)
 app.use('/images', express.static(path.join(__dirname, '../frontend/public/images')));
@@ -52,6 +62,12 @@ app.use('/api/auth', authRoutes);
 app.use('/api/v1/reservations', reservationRoutes);
 app.use('/api/v1/inventory', inventoryRoutes);
 app.use('/api/v1/payments', paymentRoutes);
+
+// Modules 1.0, 3.0 and 7.0
+app.use('/api/v1/orders', orderRoutes);
+app.use('/api/v1/reports', reportRoutes);
+app.use('/api/v1/users', usersRouter);
+app.use('/api/v1/audit', auditRouter);
 
 // Protected customer test endpoint
 app.get(

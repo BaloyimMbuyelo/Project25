@@ -1,6 +1,7 @@
-// Staff session held for the browser tab (sessionStorage).
-// Note: the System Design targets an httpOnly cookie (4.8.2); this keeps the
-// current backend's Bearer-token login working until that change is made.
+// Who is logged in, for this browser tab (sessionStorage).
+// The login token itself is an httpOnly cookie set by the API (System Design
+// 4.8.2), so JavaScript never sees it. Only the user's name and role are kept
+// here, to drive navigation; the API checks every request.
 
 const SESSION_KEY = 'ubms_staff_session';
 
@@ -15,7 +16,7 @@ export function getSession() {
 
 export function setSession(session) {
   try {
-    sessionStorage.setItem(SESSION_KEY, JSON.stringify(session));
+    sessionStorage.setItem(SESSION_KEY, JSON.stringify({ user: session.user }));
   } catch {
     // Storage unavailable (private mode) - the user will need to log in again.
   }
@@ -29,5 +30,4 @@ export function clearSession() {
   }
 }
 
-export const getToken = () => getSession()?.token || null;
 export const getUser = () => getSession()?.user || null;

@@ -4,7 +4,47 @@ import { apiRequest } from './client';
 // response envelope { data, message }.
 
 export const authApi = {
+  // Customer portal and staff portal logins (P1). The API sets the cookie.
   login: (email, password) => apiRequest('/api/auth/login', { method: 'POST', body: { email, password } }),
+  staffLogin: (email, password) => apiRequest('/api/auth/staff-login', { method: 'POST', body: { email, password } }),
+  register: (body) => apiRequest('/api/auth/register', { method: 'POST', body }),
+  logout: () => apiRequest('/api/auth/logout', { method: 'POST' }),
+  me: () => apiRequest('/api/auth/me'),
+  changePassword: (currentPassword, newPassword, confirmPassword) =>
+    apiRequest('/api/auth/change-password', {
+      method: 'POST',
+      body: { current_password: currentPassword, new_password: newPassword, confirm_password: confirmPassword },
+    }),
+};
+
+export const ordersApi = {
+  list: (query) => apiRequest('/api/v1/orders', { query }),
+  get: (ref) => apiRequest(`/api/v1/orders/${encodeURIComponent(ref)}`),
+  place: (body) => apiRequest('/api/v1/orders', { method: 'POST', body }),
+  setStatus: (ref, status) =>
+    apiRequest(`/api/v1/orders/${encodeURIComponent(ref)}/status`, { method: 'PATCH', body: { status } }),
+  cancel: (ref, reason) =>
+    apiRequest(`/api/v1/orders/${encodeURIComponent(ref)}/cancel`, { method: 'POST', body: { reason } }),
+};
+
+export const usersApi = {
+  roles: () => apiRequest('/api/v1/users/roles'),
+  list: (query) => apiRequest('/api/v1/users', { query }),
+  create: (body) => apiRequest('/api/v1/users', { method: 'POST', body }),
+  update: (id, body) => apiRequest(`/api/v1/users/${id}`, { method: 'PUT', body }),
+  setStatus: (id, status) => apiRequest(`/api/v1/users/${id}/status`, { method: 'PATCH', body: { status } }),
+  resetPassword: (id) => apiRequest(`/api/v1/users/${id}/reset-password`, { method: 'POST' }),
+  audit: (query) => apiRequest('/api/v1/audit', { query }),
+};
+
+export const reportsApi = {
+  run: (type, query) => apiRequest(`/api/v1/reports/${type}`, { query }),
+  // CSV downloads go straight to the browser (the cookie is sent automatically)
+  csvUrl: (type, query) => {
+    const base = (import.meta.env.VITE_API_URL || 'http://localhost:5000').replace(/\/$/, '');
+    const params = new URLSearchParams({ ...query, format: 'csv' });
+    return `${base}/api/v1/reports/${type}?${params}`;
+  },
 };
 
 export const reservationsApi = {
