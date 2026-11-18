@@ -477,3 +477,23 @@ footer {
   color: #ffffff;
   text-decoration: none;
 }
+
+/* =========================
+   LOG OUT (staff top bar)
+========================= */
+
+.logout-button {
+  border: 1px solid #ccc;
+  background: white;
+  color: #333;
+  border-radius: 6px;
+  padding: 8px 14px;
+  font-size: 12px;
+  font-weight: 600;
+  min-height: 36px;
+}
+
+.logout-button:hover {
+  border-color: #b87845;
+  color: #8a5a2f;
+}

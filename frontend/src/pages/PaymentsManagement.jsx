@@ -1,599 +1,498 @@
 
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
+import { paymentsApi } from '../api/modules';
+import { getUser } from '../auth/session';
+import { hasRole, ROLES } from '../auth/permissions';
+import Receipt from '../components/Receipt';
+import { formatDate, formatRand, formatTime, todayISO } from '../utils/format';
+import useToast from '../utils/useToast';
 import './PaymentsManagement.css';
 
-const STORAGE_KEY = 'ubms_payments_v1';
+// Module 6.0 Payments (FR-18, FR-19) - System Design wireframes 11B and 11C, P7.
+// Payment is taken at the counter and recorded here; there is no live gateway (Q5).
 
-const samplePayments = [
-  {
-    id: 'PAY001',
-    orderId: 'UB001',
-    customer: 'Customer 01',
-    amount: 195,
-    method: 'Card',
-    status: 'Paid',
-    reference: 'TXN10001',
-    date: '2026-11-17',
-  },
-  {
-    id: 'PAY002',
-    orderId: 'UB002',
-    customer: 'Customer 02',
-    amount: 120,
-    method: 'Cash',
-    status: 'Paid',
-    reference: 'TXN10002',
-    date: '2026-11-17',
-  },
-  {
-    id: 'PAY003',
-    orderId: 'UB003',
-    customer: 'Customer 03',
-    amount: 145,
-    method: 'EFT',
-    status: 'Pending',
-    reference: 'TXN10003',
-    date: '2026-11-17',
-  },
-  {
-    id: 'PAY004',
-    orderId: 'UB004',
-    customer: 'Customer 04',
-    amount: 95,
-    method: 'Mobile Payment',
-    status: 'Failed',
-    reference: 'TXN10004',
-    date: '2026-11-17',
-  },
-  {
-    id: 'PAY005',
-    orderId: 'UB005',
-    customer: 'Customer 05',
-    amount: 250,
-    method: 'Card',
-    status: 'Refunded',
-    reference: 'TXN10005',
-    date: '2026-11-16',
-  },
-];
-
-const emptyForm = {
-  orderId: '',
-  customer: '',
-  amount: '',
-  method: 'Cash',
-  status: 'Pending',
-  reference: '',
-  date: new Date().toLocaleDateString('en-CA'),
+const ORDER_STATUS = {
+  PENDING: 'Pending', ACCEPTED: 'Confirmed', PREPARING: 'Preparing',
+  READY: 'Ready', COMPLETED: 'Completed', CANCELLED: 'Cancelled',
 };
+const ORDER_TYPES = { DINE_IN: 'Dine-in', TAKEAWAY: 'Collection' };
 
-function getInitialPayments() {
-  try {
-    const saved = localStorage.getItem(STORAGE_KEY);
-    return saved ? JSON.parse(saved) : samplePayments;
-  } catch {
-    return samplePayments;
-  }
-}
+const toCents = (value) => Math.round(Number(value) * 100);
+const isCash = (method) => method?.method_name?.toLowerCase() === 'cash';
 
 function PaymentsManagement() {
-  const [payments, setPayments] = useState(getInitialPayments);
-  const [search, setSearch] = useState('');
-  const [statusFilter, setStatusFilter] = useState('All');
-  const [methodFilter, setMethodFilter] = useState('All');
-  const [dateFilter, setDateFilter] = useState('');
-  const [showForm, setShowForm] = useState(false);
-  const [editingId, setEditingId] = useState(null);
-  const [selectedPayment, setSelectedPayment] = useState(null);
-  const [form, setForm] = useState(emptyForm);
+  const user = getUser();
+  const canRecord = hasRole(user, [ROLES.CASHIER, ROLES.MANAGER]);
+  const canVoid = hasRole(user, [ROLES.MANAGER]);
 
-  const methods = ['Cash', 'Card', 'EFT', 'Mobile Payment'];
-  const statuses = ['Pending', 'Paid', 'Failed', 'Refunded'];
+  const [toast, showToast] = useToast(5000);
+
+  // Day's payments
+  const [date, setDate] = useState(todayISO());
+  const [statusFilter, setStatusFilter] = useState('');
+  const [day, setDay] = useState({ payments: [], summary: null });
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
+
+  // Record payment
+  const [methods, setMethods] = useState([]);
+  const [payable, setPayable] = useState([]);
+  const [orderRef, setOrderRef] = useState('');
+  const [order, setOrder] = useState(null);
+  const [orderError, setOrderError] = useState('');
+  const [findingOrder, setFindingOrder] = useState(false);
+  const [methodId, setMethodId] = useState('');
+  const [tendered, setTendered] = useState('');
+  const [reference, setReference] = useState('');
+  const [payErrors, setPayErrors] = useState({});
+  const [saving, setSaving] = useState(false);
+
+  const [receipt, setReceipt] = useState(null);
+
+  const loadDay = useCallback(async () => {
+    setLoading(true);
+    setLoadError('');
+    try {
+      const response = await paymentsApi.list({ date, status: statusFilter || undefined });
+      setDay(response.data);
+    } catch (error) {
+      setLoadError(error.message);
+    } finally {
+      setLoading(false);
+    }
+  }, [date, statusFilter]);
+
+  const loadPayable = useCallback(async () => {
+    try {
+      const response = await paymentsApi.payableOrders();
+      setPayable(response.data);
+    } catch {
+      setPayable([]);
+    }
+  }, []);
+
+  useEffect(() => { loadDay(); }, [loadDay]);
 
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(payments));
-  }, [payments]);
+    if (!canRecord) return;
+    loadPayable();
+    paymentsApi.methods()
+      .then((response) => {
+        setMethods(response.data);
+        // Sensible default: Cash (System Design 4.7.3)
+        const cash = response.data.find(isCash) || response.data[0];
+        if (cash) setMethodId(String(cash.payment_method_id));
+      })
+      .catch(() => setMethods([]));
+  }, [canRecord, loadPayable]);
 
-  const summary = useMemo(() => {
-    const paid = payments
-      .filter((payment) => payment.status === 'Paid')
-      .reduce((sum, payment) => sum + Number(payment.amount), 0);
+  const method = methods.find((m) => String(m.payment_method_id) === methodId);
 
-    const pending = payments
-      .filter((payment) => payment.status === 'Pending')
-      .reduce((sum, payment) => sum + Number(payment.amount), 0);
+  async function findOrder(ref) {
+    const value = (ref ?? orderRef).trim();
+    if (!value) {
+      setOrderError('Enter the order number, e.g. UB-0105.');
+      return;
+    }
 
-    const refunded = payments
-      .filter((payment) => payment.status === 'Refunded')
-      .reduce((sum, payment) => sum + Number(payment.amount), 0);
-
-    return {
-      totalTransactions: payments.length,
-      paid,
-      pending,
-      refunded,
-    };
-  }, [payments]);
-
-  const filteredPayments = payments.filter((payment) => {
-    const searchTerm = search.toLowerCase();
-
-    const matchesSearch =
-      payment.id.toLowerCase().includes(searchTerm) ||
-      payment.orderId.toLowerCase().includes(searchTerm) ||
-      payment.customer.toLowerCase().includes(searchTerm) ||
-      payment.reference.toLowerCase().includes(searchTerm);
-
-    const matchesStatus =
-      statusFilter === 'All' || payment.status === statusFilter;
-
-    const matchesMethod =
-      methodFilter === 'All' || payment.method === methodFilter;
-
-    const matchesDate =
-      !dateFilter || payment.date === dateFilter;
-
-    return matchesSearch && matchesStatus && matchesMethod && matchesDate;
-  });
-
-  function openAddForm() {
-    setEditingId(null);
-    setForm({ ...emptyForm });
-    setShowForm(true);
-    setSelectedPayment(null);
+    setFindingOrder(true);
+    setOrderError('');
+    setPayErrors({});
+    try {
+      const response = await paymentsApi.order(value);
+      setOrder(response.data);
+      setOrderRef(response.data.order_ref);
+      setTendered(isCash(method) ? response.data.amount_due.toFixed(2) : '');
+      setReference('');
+    } catch (error) {
+      setOrder(null);
+      setOrderError(error.message);
+    } finally {
+      setFindingOrder(false);
+    }
   }
 
-  function openEditForm(payment) {
-    setEditingId(payment.id);
-    setForm({
-      orderId: payment.orderId,
-      customer: payment.customer,
-      amount: String(payment.amount),
-      method: payment.method,
-      status: payment.status,
-      reference: payment.reference,
-      date: payment.date,
-    });
-    setShowForm(true);
-    setSelectedPayment(null);
+  function clearOrder() {
+    setOrder(null);
+    setOrderRef('');
+    setTendered('');
+    setReference('');
+    setPayErrors({});
+    setOrderError('');
   }
 
-  function closeForm() {
-    setShowForm(false);
-    setEditingId(null);
-    setForm({ ...emptyForm });
-  }
+  const dueCents = order ? toCents(order.amount_due) : 0;
+  const tenderedValid = /^\d+(\.\d{1,2})?$/.test(tendered.trim());
+  const changeCents = isCash(method) && tenderedValid ? toCents(tendered) - dueCents : null;
 
-  function handleSubmit(event) {
+  async function recordPayment(event) {
     event.preventDefault();
+    if (!order || !method) return;
 
-    const amount = Number(form.amount);
+    const errors = {};
+    if (isCash(method)) {
+      if (!tenderedValid) errors.amount_tendered = 'Enter the amount received (max 2 decimals).';
+      else if (changeCents < 0) errors.amount_tendered = `Amount received must cover ${formatRand(order.amount_due)}.`;
+    } else if (method.requires_reference && !reference.trim()) {
+      errors.reference_number = 'Enter the card slip or EFT reference.';
+    }
 
-    if (!form.orderId.trim() || !form.customer.trim()) {
-      alert('Please enter the order ID and customer name.');
+    if (Object.keys(errors).length) {
+      setPayErrors(errors);
       return;
     }
 
-    if (!Number.isFinite(amount) || amount <= 0) {
-      alert('Please enter a valid payment amount greater than zero.');
+    // Confirmation step for a financial action (System Design 4.7.3)
+    const confirmText = `Record ${formatRand(order.amount_due)} by ${method.method_name} for ${order.order_ref}?` +
+      (isCash(method) ? `\nReceived ${formatRand(tendered)} – change ${formatRand(changeCents / 100)}` : '');
+    if (!window.confirm(confirmText)) return;
+
+    setSaving(true);
+    try {
+      const response = await paymentsApi.record({
+        order_ref: order.order_ref,
+        payment_method_id: method.payment_method_id,
+        amount_tendered: isCash(method) ? Number(tendered) : null,
+        reference_number: isCash(method) ? null : reference.trim() || null,
+      });
+
+      showToast('success', `${response.message} (${response.data.receipt_number})`);
+      clearOrder();
+      loadPayable();
+      loadDay();
+
+      const receiptResponse = await paymentsApi.receipt(response.data.payment_id);
+      setReceipt(receiptResponse.data);
+    } catch (error) {
+      if (error.fields?.length) setPayErrors(error.fieldErrors());
+      else setPayErrors({ form: error.message });
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function openReceipt(payment) {
+    try {
+      const response = await paymentsApi.receipt(payment.payment_id);
+      setReceipt(response.data);
+    } catch (error) {
+      showToast('error', error.message);
+    }
+  }
+
+  async function voidPayment(payment) {
+    const reason = window.prompt(
+      `Void ${payment.receipt_number} (${formatRand(payment.amount)}, ${payment.method_name}) for ${payment.order_ref}?\n` +
+      'The record is kept for audit and the order can be paid again.\n\nReason (required):',
+      ''
+    );
+    if (reason === null) return;
+    if (reason.trim().length < 3) {
+      showToast('error', 'Enter a reason for voiding this payment.');
       return;
     }
 
-    const paymentData = {
-      orderId: form.orderId.trim(),
-      customer: form.customer.trim(),
-      amount,
-      method: form.method,
-      status: form.status,
-      reference: form.reference.trim() || 'Not provided',
-      date: form.date,
-    };
-
-    if (editingId) {
-      setPayments((current) =>
-        current.map((payment) =>
-          payment.id === editingId
-            ? { ...payment, ...paymentData }
-            : payment
-        )
-      );
-    } else {
-      const newPayment = {
-        id: `PAY${String(Date.now()).slice(-7)}`,
-        ...paymentData,
-      };
-
-      setPayments((current) => [newPayment, ...current]);
-    }
-
-    closeForm();
-    alert(editingId ? 'Payment updated successfully!' : 'Payment recorded successfully!');
-  }
-
-  function updateStatus(id, status) {
-    setPayments((current) =>
-      current.map((payment) =>
-        payment.id === id ? { ...payment, status } : payment
-      )
-    );
-
-    setSelectedPayment((current) =>
-      current?.id === id ? { ...current, status } : current
-    );
-  }
-
-  function deletePayment(id) {
-    if (window.confirm('Are you sure you want to delete this payment record?')) {
-      setPayments((current) =>
-        current.filter((payment) => payment.id !== id)
-      );
-      setSelectedPayment(null);
+    try {
+      const response = await paymentsApi.void(payment.payment_id, reason.trim());
+      showToast('success', response.message);
+      loadDay();
+      loadPayable();
+    } catch (error) {
+      showToast('error', error.message);
     }
   }
 
-  function resetSampleData() {
-    if (
-      window.confirm(
-        'Reset payments to the original demonstration records? Your changes will be lost.'
-      )
-    ) {
-      setPayments(samplePayments);
-      setSearch('');
-      setStatusFilter('All');
-      setMethodFilter('All');
-      setDateFilter('');
-      setSelectedPayment(null);
-    }
-  }
-
-  function formatDate(date) {
-    if (!date) return '';
-    return new Date(`${date}T00:00:00`).toLocaleDateString('en-ZA', {
-      day: '2-digit',
-      month: 'short',
-      year: 'numeric',
-    });
-  }
-
-  function formatCurrency(amount) {
-    return `R ${Number(amount).toLocaleString('en-ZA', {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    })}`;
-  }
+  const summary = day.summary || { count: 0, total_paid: 0, voided: 0, by_method: [] };
 
   return (
     <div className="payments-page">
       <div className="payments-heading">
         <div>
           <h2>Payments Overview</h2>
-          <p>Record and monitor restaurant customer payments.</p>
+          <p>Record counter payments against orders and print receipts. Amounts always come from the order total.</p>
         </div>
-
-        <button
-          type="button"
-          className="payments-primary-btn"
-          onClick={openAddForm}
-        >
-          + Record Payment
-        </button>
       </div>
 
-      <div className="payments-demo-note">
-        <strong>Demonstration mode:</strong> These are sample payment records.
-        No actual bank, card or mobile transactions are processed.
-        Records are saved locally in this browser.
-      </div>
+      {toast && (
+        <div className={`payments-toast ${toast.type}`} role="status" aria-live="polite">
+          {toast.type === 'success' ? '✓ ' : '⚠ '}{toast.text}
+        </div>
+      )}
 
       <section className="payments-summary">
         <div className="payments-summary-card">
-          <span>Total Transactions</span>
-          <strong>{summary.totalTransactions}</strong>
-          <small>All recorded transactions</small>
+          <span>Payments</span>
+          <strong>{summary.count}</strong>
+          <small>{formatDate(day.date || date)}</small>
         </div>
 
         <div className="payments-summary-card">
-          <span>Total Paid</span>
-          <strong>{formatCurrency(summary.paid)}</strong>
-          <small>Successfully received</small>
+          <span>Total received</span>
+          <strong>{formatRand(summary.total_paid)}</strong>
+          <small>Active Paid payments</small>
         </div>
 
         <div className="payments-summary-card">
-          <span>Pending Payments</span>
-          <strong>{formatCurrency(summary.pending)}</strong>
-          <small>Awaiting payment</small>
+          <span>By method</span>
+          <div className="payments-by-method">
+            {summary.by_method.length === 0 && <small>No payments yet</small>}
+            {summary.by_method.map((m) => (
+              <small key={m.method_name}>{m.method_name}: {formatRand(m.total)} ({m.count})</small>
+            ))}
+          </div>
         </div>
 
         <div className="payments-summary-card">
-          <span>Total Refunded</span>
-          <strong>{formatCurrency(summary.refunded)}</strong>
-          <small>Refunded transactions</small>
+          <span>Voided</span>
+          <strong>{summary.voided}</strong>
+          <small>Kept for audit</small>
         </div>
       </section>
 
-      {showForm && (
-        <form className="payments-form" onSubmit={handleSubmit}>
-          <h3>{editingId ? 'Edit Payment' : 'Record New Payment'}</h3>
+      {canRecord && (
+        <section className="payments-record">
+          <div className="payments-record-order">
+            <h3>Record payment</h3>
 
-          <div className="payments-form-grid">
-            <div>
-              <label htmlFor="paymentOrderId">Order ID</label>
-              <input
-                id="paymentOrderId"
-                value={form.orderId}
-                onChange={(event) =>
-                  setForm({ ...form, orderId: event.target.value })
-                }
-                placeholder="e.g. UB001"
-                required
-              />
-            </div>
+            <form
+              className="payments-find"
+              onSubmit={(event) => { event.preventDefault(); findOrder(); }}
+            >
+              <label htmlFor="orderRef">Order number *</label>
+              <div className="payments-find-row">
+                <input
+                  id="orderRef"
+                  value={orderRef}
+                  onChange={(event) => setOrderRef(event.target.value)}
+                  placeholder="e.g. UB-0105"
+                  aria-invalid={Boolean(orderError)}
+                />
+                <button type="submit" className="payments-secondary-btn" disabled={findingOrder}>
+                  {findingOrder ? 'Finding…' : 'Find'}
+                </button>
+              </div>
+              {orderError && <p className="payments-field-error" role="alert">{orderError}</p>}
+            </form>
 
-            <div>
-              <label htmlFor="paymentCustomer">Customer Name</label>
-              <input
-                id="paymentCustomer"
-                value={form.customer}
-                onChange={(event) =>
-                  setForm({ ...form, customer: event.target.value })
-                }
-                placeholder="Enter customer name"
-                required
-              />
-            </div>
+            {!order && (
+              <div className="payments-awaiting">
+                <h4>Awaiting payment ({payable.length})</h4>
+                {payable.length === 0 && <p className="payments-muted">No Ready orders are waiting for payment.</p>}
+                <ul>
+                  {payable.map((o) => (
+                    <li key={o.order_id}>
+                      <button type="button" onClick={() => findOrder(o.order_ref)}>
+                        <strong>{o.order_ref}</strong>
+                        <span>{o.customer_name} · {ORDER_TYPES[o.order_type] || o.order_type}</span>
+                        <span className="payments-awaiting-amount">{formatRand(o.total)}</span>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
 
-            <div>
-              <label htmlFor="paymentAmount">Payment Amount (R)</label>
-              <input
-                id="paymentAmount"
-                type="number"
-                min="0.01"
-                step="0.01"
-                value={form.amount}
-                onChange={(event) =>
-                  setForm({ ...form, amount: event.target.value })
-                }
-                placeholder="Enter amount"
-                required
-              />
-            </div>
+            {order && (
+              <div className="payments-order-card">
+                <div className="payments-order-heading">
+                  <strong>
+                    Order {order.order_ref} · {order.customer_name} · {ORDER_TYPES[order.order_type] || order.order_type}
+                  </strong>
+                  <span className={`payments-order-status ${order.order_status.toLowerCase()}`}>
+                    {ORDER_STATUS[order.order_status] || order.order_status}
+                  </span>
+                </div>
 
-            <div>
-              <label htmlFor="paymentMethod">Payment Method</label>
-              <select
-                id="paymentMethod"
-                value={form.method}
-                onChange={(event) =>
-                  setForm({ ...form, method: event.target.value })
-                }
-              >
-                {methods.map((method) => (
-                  <option key={method}>{method}</option>
-                ))}
-              </select>
-            </div>
+                <ul className="payments-lines">
+                  {order.lines.map((line, index) => (
+                    <li key={`${line.name}-${index}`}>
+                      <span>{line.quantity} × {line.name}</span>
+                      <span>{formatRand(line.line_total)}</span>
+                    </li>
+                  ))}
+                </ul>
 
-            <div>
-              <label htmlFor="paymentStatus">Payment Status</label>
-              <select
-                id="paymentStatus"
-                value={form.status}
-                onChange={(event) =>
-                  setForm({ ...form, status: event.target.value })
-                }
-              >
-                {statuses.map((status) => (
-                  <option key={status}>{status}</option>
-                ))}
-              </select>
-            </div>
+                <div className="payments-amount-due">
+                  <span>Amount due</span>
+                  <strong>{formatRand(order.amount_due)}</strong>
+                </div>
 
-            <div>
-              <label htmlFor="paymentDate">Payment Date</label>
-              <input
-                id="paymentDate"
-                type="date"
-                value={form.date}
-                onChange={(event) =>
-                  setForm({ ...form, date: event.target.value })
-                }
-                required
-              />
-            </div>
-
-            <div className="payments-full-width">
-              <label htmlFor="paymentReference">Transaction Reference</label>
-              <input
-                id="paymentReference"
-                value={form.reference}
-                onChange={(event) =>
-                  setForm({ ...form, reference: event.target.value })
-                }
-                placeholder="Enter transaction reference (optional)"
-              />
-            </div>
+                {!order.payable && (
+                  <p className="payments-not-payable" role="alert">⚠ {order.not_payable_reason}</p>
+                )}
+              </div>
+            )}
           </div>
 
-          <div className="payments-form-actions">
-            <button type="submit" className="payments-primary-btn">
-              {editingId ? 'Update Payment' : 'Save Payment'}
-            </button>
+          <form className="payments-record-form" onSubmit={recordPayment} noValidate>
+            <h3>Payment</h3>
+
+            <label htmlFor="paymentMethod">Payment method *</label>
+            <select
+              id="paymentMethod"
+              value={methodId}
+              onChange={(event) => {
+                setMethodId(event.target.value);
+                setPayErrors({});
+                const next = methods.find((m) => String(m.payment_method_id) === event.target.value);
+                if (isCash(next) && order && !tendered) setTendered(order.amount_due.toFixed(2));
+              }}
+              disabled={!order || !order.payable}
+            >
+              {methods.map((m) => (
+                <option key={m.payment_method_id} value={m.payment_method_id}>{m.method_name}</option>
+              ))}
+            </select>
+
+            {isCash(method) ? (
+              <>
+                <label htmlFor="amountTendered">Amount received (R) *</label>
+                <input
+                  id="amountTendered"
+                  inputMode="decimal"
+                  value={tendered}
+                  onChange={(event) => { setTendered(event.target.value); setPayErrors({}); }}
+                  disabled={!order || !order.payable}
+                  aria-invalid={Boolean(payErrors.amount_tendered)}
+                />
+                {order && <small className="payments-help">Must cover {formatRand(order.amount_due)}</small>}
+                {payErrors.amount_tendered && <p className="payments-field-error">{payErrors.amount_tendered}</p>}
+              </>
+            ) : (
+              <>
+                <label htmlFor="paymentReference">Reference no. (card / EFT) *</label>
+                <input
+                  id="paymentReference"
+                  maxLength={30}
+                  value={reference}
+                  onChange={(event) => { setReference(event.target.value); setPayErrors({}); }}
+                  disabled={!order || !order.payable}
+                  placeholder="Card slip or EFT reference"
+                  aria-invalid={Boolean(payErrors.reference_number)}
+                />
+                {payErrors.reference_number && <p className="payments-field-error">{payErrors.reference_number}</p>}
+              </>
+            )}
+
+            {order && order.payable && isCash(method) && changeCents !== null && changeCents >= 0 && (
+              <div className="payments-change">Change due: <strong>{formatRand(changeCents / 100)}</strong></div>
+            )}
+
+            {payErrors.form && <div className="payments-form-error" role="alert">⚠ {payErrors.form}</div>}
 
             <button
-              type="button"
-              className="payments-cancel-btn"
-              onClick={closeForm}
+              type="submit"
+              className="payments-primary-btn payments-record-btn"
+              disabled={!order || !order.payable || !method || saving}
             >
-              Cancel
+              {saving ? 'Recording…' : 'Record payment'}
             </button>
-          </div>
-        </form>
-      )}
 
-      {selectedPayment && (
-        <section className="payments-detail-panel">
-          <div className="payments-detail-heading">
-            <div>
-              <h3>Payment Details – {selectedPayment.id}</h3>
-              <p>{selectedPayment.customer}</p>
-            </div>
-
-            <button
-              type="button"
-              className="payments-cancel-btn"
-              onClick={() => setSelectedPayment(null)}
-            >
-              Close
-            </button>
-          </div>
-
-          <div className="payments-detail-grid">
-            <p><strong>Order ID:</strong> {selectedPayment.orderId}</p>
-            <p><strong>Customer:</strong> {selectedPayment.customer}</p>
-            <p><strong>Amount:</strong> {formatCurrency(selectedPayment.amount)}</p>
-            <p><strong>Method:</strong> {selectedPayment.method}</p>
-            <p><strong>Status:</strong> {selectedPayment.status}</p>
-            <p><strong>Date:</strong> {formatDate(selectedPayment.date)}</p>
-            <p><strong>Reference:</strong> {selectedPayment.reference}</p>
-          </div>
+            {order && (
+              <button type="button" className="payments-cancel-btn" onClick={clearOrder} disabled={saving}>
+                Cancel
+              </button>
+            )}
+          </form>
         </section>
       )}
 
       <section className="payments-table-panel">
         <div className="payments-table-heading">
           <div>
-            <h3>Payment Transactions</h3>
-            <p>View and manage all recorded payment transactions.</p>
+            <h3>Payments for {formatDate(date)}</h3>
+            <p>Voided payments stay on record. Only a Manager can void.</p>
           </div>
 
-          <button
-            type="button"
-            className="payments-reset-btn"
-            onClick={resetSampleData}
-          >
-            Reset Sample Data
+          <button type="button" className="payments-reset-btn" onClick={loadDay} disabled={loading}>
+            Refresh
           </button>
         </div>
 
         <div className="payments-filters">
           <input
-            type="search"
-            placeholder="Search payment, order or customer..."
-            value={search}
-            onChange={(event) => setSearch(event.target.value)}
-          />
-
-          <select
-            value={statusFilter}
-            onChange={(event) => setStatusFilter(event.target.value)}
-          >
-            <option value="All">All Statuses</option>
-            {statuses.map((status) => (
-              <option key={status}>{status}</option>
-            ))}
-          </select>
-
-          <select
-            value={methodFilter}
-            onChange={(event) => setMethodFilter(event.target.value)}
-          >
-            <option value="All">All Methods</option>
-            {methods.map((method) => (
-              <option key={method}>{method}</option>
-            ))}
-          </select>
-
-          <input
             type="date"
-            value={dateFilter}
-            onChange={(event) => setDateFilter(event.target.value)}
+            aria-label="Payment date"
+            value={date}
+            max={todayISO()}
+            onChange={(event) => setDate(event.target.value || todayISO())}
           />
+
+          <select aria-label="Filter by status" value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}>
+            <option value="">All statuses</option>
+            <option value="PAID">Paid</option>
+            <option value="VOIDED">Voided</option>
+          </select>
         </div>
 
         <div className="table-wrapper">
           <table className="payments-table">
             <thead>
               <tr>
-                <th>Payment ID</th>
-                <th>Order ID</th>
+                <th>Receipt</th>
+                <th>Time</th>
+                <th>Order</th>
                 <th>Customer</th>
-                <th>Amount</th>
                 <th>Method</th>
-                <th>Date</th>
+                <th>Amount</th>
                 <th>Status</th>
-                <th>Update Status</th>
+                <th>Recorded by</th>
                 <th>Actions</th>
               </tr>
             </thead>
 
             <tbody>
-              {filteredPayments.map((payment) => (
-                <tr key={payment.id}>
-                  <td><strong>#{payment.id}</strong></td>
-                  <td>{payment.orderId}</td>
-                  <td>{payment.customer}</td>
-                  <td>{formatCurrency(payment.amount)}</td>
-                  <td>{payment.method}</td>
-                  <td>{formatDate(payment.date)}</td>
+              {loading && <tr><td colSpan="9" className="payments-empty">Loading payments…</td></tr>}
+
+              {!loading && loadError && (
+                <tr>
+                  <td colSpan="9" className="payments-empty">
+                    <span role="alert">{loadError}</span>{' '}
+                    <button type="button" className="payments-inline-btn" onClick={loadDay}>Try again</button>
+                  </td>
+                </tr>
+              )}
+
+              {!loading && !loadError && day.payments.map((payment) => (
+                <tr key={payment.payment_id}>
+                  <td><strong>{payment.receipt_number}</strong></td>
+                  <td>{formatTime(payment.paid_at)}</td>
+                  <td>{payment.order_ref}</td>
+                  <td>{payment.customer_name}</td>
                   <td>
-                    <span
-                      className={`payments-status ${payment.status.toLowerCase()}`}
-                    >
-                      {payment.status}
+                    {payment.method_name}
+                    {payment.reference_number && <small className="payments-ref">{payment.reference_number}</small>}
+                  </td>
+                  <td>{formatRand(payment.amount)}</td>
+                  <td>
+                    <span className={`payments-status ${payment.payment_status === 'PAID' ? 'paid' : 'voided'}`}>
+                      {payment.payment_status === 'PAID' ? 'Paid' : 'Voided'}
                     </span>
+                    {payment.void_reason && <small className="payments-ref">{payment.void_reason}</small>}
                   </td>
-                  <td>
-                    <select
-                      className="payments-status-select"
-                      value={payment.status}
-                      onChange={(event) =>
-                        updateStatus(payment.id, event.target.value)
-                      }
-                    >
-                      {statuses.map((status) => (
-                        <option key={status}>{status}</option>
-                      ))}
-                    </select>
-                  </td>
+                  <td>{payment.recorded_by}</td>
                   <td>
                     <div className="payments-row-actions">
-                      <button
-                        type="button"
-                        onClick={() => setSelectedPayment(payment)}
-                      >
-                        View
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() => openEditForm(payment)}
-                      >
-                        Edit
-                      </button>
-
-                      <button
-                        type="button"
-                        className="payments-delete-btn"
-                        onClick={() => deletePayment(payment.id)}
-                      >
-                        Delete
-                      </button>
+                      <button type="button" onClick={() => openReceipt(payment)}>Receipt</button>
+                      {canVoid && payment.payment_status === 'PAID' && (
+                        <button type="button" className="payments-delete-btn" onClick={() => voidPayment(payment)}>
+                          Void
+                        </button>
+                      )}
                     </div>
                   </td>
                 </tr>
               ))}
 
-              {filteredPayments.length === 0 && (
-                <tr>
-                  <td colSpan="9" className="payments-empty">
-                    No matching payment records found.
-                  </td>
-                </tr>
+              {!loading && !loadError && day.payments.length === 0 && (
+                <tr><td colSpan="9" className="payments-empty">No payments recorded for this day.</td></tr>
               )}
             </tbody>
           </table>
         </div>
       </section>
+
+      {receipt && <Receipt receipt={receipt} onClose={() => setReceipt(null)} />}
     </div>
   );
 }

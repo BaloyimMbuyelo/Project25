@@ -1,22 +1,25 @@
 
-import { NavLink, Outlet, useLocation } from 'react-router-dom';
-
-const menuItems = [
-  { name: 'Dashboard', path: '/staff/dashboard', icon: '▦' },
-  { name: 'Orders', path: '/staff/orders', icon: '▤' },
-  { name: 'Reservations', path: '/staff/reservations', icon: '▣' },
-  { name: 'Menu Management', path: '/staff/menu', icon: '☷' },
-  { name: 'Inventory', path: '/staff/inventory', icon: '▥' },
-  { name: 'Payments', path: '/staff/payments', icon: 'R' },
-  { name: 'Reports', path: '/staff/reports', icon: '▧' },
-];
+import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
+import { STAFF_PAGES, hasRole } from '../auth/permissions';
+import { clearSession, getUser } from '../auth/session';
+import { initials } from '../utils/format';
 
 function StaffLayout() {
   const location = useLocation();
+  const navigate = useNavigate();
+  const user = getUser();
+
+  // Staff see only the modules their role may use (System Design 4.7.2)
+  const menuItems = STAFF_PAGES.filter((item) => hasRole(user, item.roles));
 
   const currentPage =
-    menuItems.find((item) => item.path === location.pathname)?.name
+    STAFF_PAGES.find((item) => item.path === location.pathname)?.name
     || 'Dashboard';
+
+  function logout() {
+    clearSession();
+    navigate('/staff/login', { replace: true });
+  }
 
   return (
     <div className="app">
@@ -51,11 +54,11 @@ function StaffLayout() {
 
         {/* User profile */}
         <div className="sidebar-bottom">
-          <div className="user-avatar">MB</div>
+          <div className="user-avatar">{initials(user?.full_name)}</div>
 
           <div>
-            <strong>System Admin</strong>
-            <span>Administrator</span>
+            <strong>{user?.full_name}</strong>
+            <span>{user?.role}</span>
           </div>
         </div>
       </aside>
@@ -73,10 +76,12 @@ function StaffLayout() {
 
           <div className="topbar-right">
             <span className="date-label">
-              Restaurant Management
+              {user?.full_name} · {user?.role}
             </span>
 
-            <div className="profile-avatar">MB</div>
+            <button type="button" className="logout-button" onClick={logout}>
+              Log out
+            </button>
           </div>
         </header>
 

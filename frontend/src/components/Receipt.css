@@ -1,0 +1,189 @@
+.receipt-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(20, 20, 18, 0.55);
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 32px 16px;
+  overflow-y: auto;
+  z-index: 50;
+}
+
+.receipt-dialog {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 100%;
+  max-width: 380px;
+}
+
+.receipt-sheet {
+  position: relative;
+  background: white;
+  color: #222;
+  border: 2px solid #555;
+  padding: 24px 20px;
+  font-family: Arial, Helvetica, sans-serif;
+  font-size: 13px;
+  overflow: hidden;
+}
+
+.receipt-header {
+  text-align: center;
+}
+
+.receipt-header h2 {
+  font-size: 20px;
+  letter-spacing: 0.5px;
+}
+
+.receipt-header p {
+  color: #555;
+  margin-top: 3px;
+}
+
+.receipt-small {
+  font-size: 10px;
+  color: #777;
+}
+
+.receipt-title {
+  text-align: center;
+  font-size: 13px;
+  margin: 18px 0 12px;
+}
+
+.receipt-meta div,
+.receipt-totals div {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 3px 0;
+}
+
+.receipt-meta dt {
+  color: #777;
+}
+
+.receipt-meta,
+.receipt-lines {
+  border-bottom: 1px solid #999;
+  padding-bottom: 10px;
+  margin-bottom: 10px;
+}
+
+.receipt-meta dd,
+.receipt-totals dd {
+  margin: 0;
+  text-align: right;
+}
+
+.receipt-lines {
+  width: 100%;
+  border-collapse: collapse;
+  display: table;
+}
+
+.receipt-lines td {
+  padding: 5px 0;
+  vertical-align: top;
+}
+
+.receipt-qty {
+  color: #777;
+  font-size: 11px;
+  text-align: center;
+  white-space: nowrap;
+  padding: 0 8px !important;
+}
+
+.receipt-amount {
+  text-align: right;
+  white-space: nowrap;
+}
+
+.receipt-total {
+  font-weight: 700;
+  font-size: 16px;
+}
+
+.receipt-footer {
+  text-align: center;
+  margin-top: 18px;
+}
+
+.receipt-footer p {
+  margin-top: 5px;
+}
+
+.receipt-void-stamp {
+  position: absolute;
+  top: 40%;
+  left: 50%;
+  transform: translate(-50%, -50%) rotate(-18deg);
+  border: 4px solid rgba(182, 62, 62, 0.55);
+  color: rgba(182, 62, 62, 0.55);
+  font-size: 40px;
+  font-weight: 800;
+  padding: 4px 18px;
+  letter-spacing: 4px;
+  pointer-events: none;
+}
+
+.receipt-void-reason {
+  color: #b63e3e;
+  margin-top: 4px;
+}
+
+.receipt-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.receipt-actions button {
+  flex: 1;
+  min-height: 44px;
+  border-radius: 6px;
+  font-weight: 600;
+  font-size: 13px;
+}
+
+.receipt-print-btn {
+  background: #252523;
+  border: 1px solid #252523;
+  color: white;
+}
+
+.receipt-close-btn {
+  background: white;
+  border: 1px solid #ccc;
+  color: #333;
+}
+
+/* Print only the receipt (80 mm thermal or A4) */
+@media print {
+  body.printing-receipt * {
+    visibility: hidden;
+  }
+
+  body.printing-receipt .receipt-sheet,
+  body.printing-receipt .receipt-sheet * {
+    visibility: visible;
+  }
+
+  body.printing-receipt .receipt-overlay {
+    position: static;
+    background: none;
+    padding: 0;
+  }
+
+  body.printing-receipt .receipt-sheet {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 80mm;
+    border: none;
+    padding: 4mm;
+  }
+}

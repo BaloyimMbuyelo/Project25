@@ -1,294 +1,282 @@
 
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { reservationsApi } from '../api/modules';
+import { getUser } from '../auth/session';
+import { hasRole, ROLES } from '../auth/permissions';
+import { addDaysISO, formatDate, todayISO } from '../utils/format';
+import useToast from '../utils/useToast';
 import './ReservationsManagement.css';
 
-const STORAGE_KEY = 'ubms_reservations_v1';
+// Module 4.0 Reservations (FR-12 to FR-14) - System Design wireframe 10A.
 
-const sampleReservations = [
-  {
-    id: 'RES001',
-    customer: 'Thabo Mokoena',
-    phone: '071 234 5678',
-    date: '2026-11-17',
-    time: '12:00',
-    guests: 4,
-    tableNumber: 'T01',
-    status: 'Confirmed',
-    notes: 'Window seating preferred',
-  },
-  {
-    id: 'RES002',
-    customer: 'Lerato Nkosi',
-    phone: '082 345 6789',
-    date: '2026-11-17',
-    time: '13:30',
-    guests: 2,
-    tableNumber: 'T02',
-    status: 'Pending',
-    notes: '',
-  },
-  {
-    id: 'RES003',
-    customer: 'Sipho Dlamini',
-    phone: '083 456 7890',
-    date: '2026-11-18',
-    time: '18:00',
-    guests: 6,
-    tableNumber: 'T05',
-    status: 'Confirmed',
-    notes: 'Birthday dinner',
-  },
-  {
-    id: 'RES004',
-    customer: 'Naledi Molefe',
-    phone: '072 567 8901',
-    date: '2026-11-18',
-    time: '19:00',
-    guests: 3,
-    tableNumber: 'T03',
-    status: 'Seated',
-    notes: '',
-  },
-];
-
-const emptyForm = {
-  customer: '',
-  phone: '',
-  date: '',
-  time: '',
-  guests: '2',
-  tableNumber: '',
-  notes: '',
+const STATUS_LABELS = {
+  PENDING: 'Pending',
+  CONFIRMED: 'Confirmed',
+  SEATED: 'Seated',
+  COMPLETED: 'Completed',
+  CANCELLED: 'Cancelled',
+  NO_SHOW: 'No-show',
 };
 
-function getInitialReservations() {
-  try {
-    const saved = localStorage.getItem(STORAGE_KEY);
-    return saved ? JSON.parse(saved) : sampleReservations;
-  } catch {
-    return sampleReservations;
-  }
-}
+// Status actions follow the reservation state model (Figure 8)
+const STATUS_ACTIONS = {
+  PENDING: [{ status: 'CANCELLED', label: 'Cancel', danger: true }],
+  CONFIRMED: [
+    { status: 'SEATED', label: 'Seat' },
+    { status: 'NO_SHOW', label: 'No-show' },
+    { status: 'CANCELLED', label: 'Cancel', danger: true },
+  ],
+  SEATED: [{ status: 'COMPLETED', label: 'Complete' }],
+};
+
+const EDITABLE = ['PENDING', 'CONFIRMED'];
+
+// 17:00 to 21:00 in 30-minute steps (Q9) - the API applies the same rule
+const SLOTS = ['17:00', '17:30', '18:00', '18:30', '19:00', '19:30', '20:00', '20:30', '21:00'];
+
+const statusClass = (status) => status.toLowerCase().replace('_', '-');
+
+const emptyForm = () => ({
+  mode: 'create',
+  ref: null,
+  isGuest: true,
+  guest_name: '',
+  guest_phone: '',
+  reservation_date: todayISO(),
+  start_time: '19:00',
+  party_size: '2',
+  table_id: null,
+  special_requests: '',
+});
 
 function ReservationsManagement() {
-  const [reservations, setReservations] = useState(getInitialReservations);
+  const user = getUser();
+  const canEdit = hasRole(user, [ROLES.WAITER, ROLES.MANAGER]);
+
+  const [date, setDate] = useState(todayISO());
+  const [statusFilter, setStatusFilter] = useState('');
   const [search, setSearch] = useState('');
-  const [statusFilter, setStatusFilter] = useState('All');
-  const [dateFilter, setDateFilter] = useState('');
-  const [showForm, setShowForm] = useState(false);
-  const [selectedReservation, setSelectedReservation] = useState(null);
-  const [editingId, setEditingId] = useState(null);
-  const [form, setForm] = useState(emptyForm);
 
-  const statuses = [
-    'Pending',
-    'Confirmed',
-    'Seated',
-    'Completed',
-    'Cancelled',
-  ];
+  const [data, setData] = useState({ reservations: [], summary: null });
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
+  const [toast, showToast] = useToast();
 
-  const tables = ['T01', 'T02', 'T03', 'T04', 'T05', 'T06', 'T07', 'T08'];
+  const [form, setForm] = useState(null);
+  const [formErrors, setFormErrors] = useState({});
+  const [formConflict, setFormConflict] = useState(null);
+  const [saving, setSaving] = useState(false);
+  const [tablePlan, setTablePlan] = useState([]);
+
+  const [selected, setSelected] = useState(null);
+  const [busyRef, setBusyRef] = useState(null);
+
+  const loadReservations = useCallback(async () => {
+    setLoading(true);
+    setLoadError('');
+    try {
+      const response = await reservationsApi.list({ date, status: statusFilter || undefined });
+      setData(response.data);
+    } catch (error) {
+      setLoadError(error.message);
+    } finally {
+      setLoading(false);
+    }
+  }, [date, statusFilter]);
 
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(reservations));
-  }, [reservations]);
+    loadReservations();
+  }, [loadReservations]);
 
-  const summary = useMemo(() => ({
-    total: reservations.length,
-    pending: reservations.filter((r) => r.status === 'Pending').length,
-    confirmed: reservations.filter((r) => r.status === 'Confirmed').length,
-    seated: reservations.filter((r) => r.status === 'Seated').length,
-  }), [reservations]);
+  // Table plan for the slot being booked (Figure 19, note 2)
+  useEffect(() => {
+    if (!form || !form.reservation_date || !form.start_time) return undefined;
 
-  const filteredReservations = reservations
-    .filter((reservation) => {
-      const matchesSearch =
-        reservation.customer.toLowerCase().includes(search.toLowerCase()) ||
-        reservation.id.toLowerCase().includes(search.toLowerCase()) ||
-        reservation.phone.includes(search);
+    let cancelled = false;
+    reservationsApi.tables(form.reservation_date, form.start_time)
+      .then((response) => { if (!cancelled) setTablePlan(response.data); })
+      .catch(() => { if (!cancelled) setTablePlan([]); });
 
-      const matchesStatus =
-        statusFilter === 'All' || reservation.status === statusFilter;
+    return () => { cancelled = true; };
+  }, [form?.reservation_date, form?.start_time]); // eslint-disable-line react-hooks/exhaustive-deps
 
-      const matchesDate =
-        !dateFilter || reservation.date === dateFilter;
-
-      return matchesSearch && matchesStatus && matchesDate;
-    })
-    .sort((a, b) =>
-      `${a.date} ${a.time}`.localeCompare(`${b.date} ${b.time}`)
+  const visibleReservations = useMemo(() => {
+    const needle = search.trim().toLowerCase();
+    if (!needle) return data.reservations;
+    return data.reservations.filter((r) =>
+      r.reservation_ref.toLowerCase().includes(needle) ||
+      (r.customer_name || '').toLowerCase().includes(needle) ||
+      (r.customer_phone || '').includes(needle)
     );
+  }, [data.reservations, search]);
 
-  function openAddForm() {
-    setEditingId(null);
-    setForm({ ...emptyForm });
-    setShowForm(true);
-    setSelectedReservation(null);
+  function openCreate() {
+    setForm({ ...emptyForm(), reservation_date: date >= todayISO() ? date : todayISO() });
+    setFormErrors({});
+    setFormConflict(null);
+    setSelected(null);
   }
 
-  function openEditForm(reservation) {
-    setEditingId(reservation.id);
+  function openEdit(reservation) {
     setForm({
-      customer: reservation.customer,
-      phone: reservation.phone,
-      date: reservation.date,
-      time: reservation.time,
-      guests: String(reservation.guests),
-      tableNumber: reservation.tableNumber,
-      notes: reservation.notes || '',
+      mode: 'edit',
+      ref: reservation.reservation_ref,
+      isGuest: !reservation.customer_id,
+      guest_name: reservation.guest_name || reservation.customer_name || '',
+      guest_phone: reservation.guest_phone || reservation.customer_phone || '',
+      reservation_date: reservation.reservation_date,
+      start_time: reservation.start_time,
+      party_size: String(reservation.party_size),
+      table_id: reservation.table_id,
+      special_requests: reservation.special_requests || '',
     });
-    setShowForm(true);
-    setSelectedReservation(null);
+    setFormErrors({});
+    setFormConflict(null);
+    setSelected(null);
   }
 
   function closeForm() {
-    setShowForm(false);
-    setEditingId(null);
-    setForm({ ...emptyForm });
+    setForm(null);
+    setFormErrors({});
+    setFormConflict(null);
   }
 
-  function handleSubmit(event) {
-    event.preventDefault();
+  const updateForm = (changes) => {
+    setForm((current) => ({ ...current, ...changes }));
+    setFormConflict(null);
+    setFormErrors((current) => {
+      const next = { ...current };
+      Object.keys(changes).forEach((key) => delete next[key]);
+      return next;
+    });
+  };
 
-    const guests = Number(form.guests);
-
-    if (!form.customer.trim() || !form.phone.trim()) {
-      alert('Please enter the customer name and contact number.');
-      return;
-    }
-
-    if (!Number.isInteger(guests) || guests < 1) {
-      alert('Please enter a valid number of guests.');
-      return;
-    }
-
-    const reservationData = {
-      customer: form.customer.trim(),
-      phone: form.phone.trim(),
-      date: form.date,
-      time: form.time,
-      guests,
-      tableNumber: form.tableNumber,
-      notes: form.notes.trim(),
-    };
-
-    const tableConflict = reservations.some((reservation) =>
-      reservation.id !== editingId &&
-      reservation.date === reservationData.date &&
-      reservation.time === reservationData.time &&
-      reservation.tableNumber === reservationData.tableNumber &&
-      !['Cancelled', 'Completed'].includes(reservation.status)
-    );
-
-    if (tableConflict) {
-      alert('This table is already reserved at that date and time.');
-      return;
-    }
-
-    if (editingId) {
-      setReservations((current) =>
-        current.map((reservation) =>
-          reservation.id === editingId
-            ? { ...reservation, ...reservationData }
-            : reservation
-        )
-      );
-    } else {
-      const newReservation = {
-        id: `RES${String(Date.now()).slice(-6)}`,
-        ...reservationData,
-        status: 'Pending',
-      };
-
-      setReservations((current) => [...current, newReservation]);
-    }
-
-    closeForm();
-    alert(editingId ? 'Reservation updated successfully!' : 'Reservation created successfully!');
-  }
-
-  function updateStatus(id, status) {
-    setReservations((current) =>
-      current.map((reservation) =>
-        reservation.id === id
-          ? { ...reservation, status }
-          : reservation
-      )
-    );
-
-    setSelectedReservation((current) =>
-      current?.id === id ? { ...current, status } : current
-    );
-  }
-
-  function deleteReservation(id) {
-    if (window.confirm('Are you sure you want to delete this reservation?')) {
-      setReservations((current) =>
-        current.filter((reservation) => reservation.id !== id)
-      );
-      setSelectedReservation(null);
-    }
-  }
-
-  function resetSampleData() {
-    if (window.confirm('Reset reservations to the original sample data? Your changes will be lost.')) {
-      setReservations(sampleReservations);
-      setSearch('');
-      setStatusFilter('All');
-      setDateFilter('');
-      setSelectedReservation(null);
-    }
-  }
-
-  function formatDate(date) {
-    if (!date) return '';
-    return new Date(`${date}T00:00:00`).toLocaleDateString('en-ZA', {
-      day: '2-digit',
-      month: 'short',
-      year: 'numeric',
+  function applyAlternative(alternative) {
+    updateForm({
+      start_time: alternative.start_time,
+      ...(alternative.table_id ? { table_id: alternative.table_id } : {}),
     });
   }
+
+  async function handleSubmit(event) {
+    event.preventDefault();
+
+    const partySize = Number(form.party_size);
+    const errors = {};
+    if (!Number.isInteger(partySize) || partySize < 1 || partySize > 20) {
+      errors.party_size = 'Party size must be between 1 and 20.';
+    }
+    if (form.isGuest && form.guest_name.trim().length < 2) errors.guest_name = 'Enter the guest name.';
+    if (form.isGuest && !form.guest_phone.trim()) errors.guest_phone = 'Enter the guest contact number.';
+
+    if (Object.keys(errors).length) {
+      setFormErrors(errors);
+      return;
+    }
+
+    const body = {
+      reservation_date: form.reservation_date,
+      start_time: form.start_time,
+      party_size: partySize,
+      table_id: form.table_id || null,
+      special_requests: form.special_requests.trim() || null,
+    };
+
+    if (form.isGuest) {
+      body.guest_name = form.guest_name.trim();
+      body.guest_phone = form.guest_phone.trim();
+    }
+
+    setSaving(true);
+    try {
+      const response = form.mode === 'create'
+        ? await reservationsApi.create(body)
+        : await reservationsApi.update(form.ref, body);
+
+      showToast('success', form.mode === 'create'
+        ? `${response.message} (${STATUS_LABELS[response.data.status]})`
+        : response.message);
+
+      closeForm();
+      if (response.data.reservation_date !== date) setDate(response.data.reservation_date);
+      else loadReservations();
+    } catch (error) {
+      if (error.status === 409) {
+        setFormConflict({ message: error.message, alternatives: error.details?.alternatives || [] });
+      } else if (error.fields?.length) {
+        setFormErrors(error.fieldErrors());
+      } else {
+        setFormConflict({ message: error.message, alternatives: [] });
+      }
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function changeStatus(reservation, status) {
+    let reason;
+
+    if (status === 'CANCELLED') {
+      reason = window.prompt(`Cancel ${reservation.reservation_ref} for ${reservation.customer_name}?\nReason (optional):`, '');
+      if (reason === null) return;
+    } else if (status === 'NO_SHOW' && !window.confirm(`Mark ${reservation.reservation_ref} as a no-show?`)) {
+      return;
+    }
+
+    setBusyRef(reservation.reservation_ref);
+    try {
+      const response = await reservationsApi.changeStatus(reservation.reservation_ref, status, reason || undefined);
+      showToast('success', `${reservation.reservation_ref}: ${response.message}`);
+      if (selected?.reservation_ref === reservation.reservation_ref) setSelected(response.data);
+      loadReservations();
+    } catch (error) {
+      showToast('error', error.message);
+    } finally {
+      setBusyRef(null);
+    }
+  }
+
+  const summary = data.summary || { total: 0, pending: 0, confirmed: 0, seated: 0 };
+  const today = todayISO();
 
   return (
     <div className="reservations-page">
       <div className="reservations-heading">
         <div>
           <h2>Reservations Overview</h2>
-          <p>Manage customer bookings, tables and dining schedules.</p>
+          <p>Bookings for the selected day, with table allocation and conflict checks.</p>
         </div>
 
-        <button
-          type="button"
-          className="reservations-primary-btn"
-          onClick={openAddForm}
-        >
-          + New Reservation
-        </button>
+        {canEdit && (
+          <button type="button" className="reservations-primary-btn" onClick={openCreate}>
+            + New booking
+          </button>
+        )}
       </div>
 
-      <div className="reservations-demo-note">
-        <strong>Demonstration mode:</strong> Reservation records are saved
-        locally in this browser and are not yet connected to the shared database.
-      </div>
+      {toast && (
+        <div className={`reservations-toast ${toast.type}`} role="status" aria-live="polite">
+          {toast.type === 'success' ? '✓ ' : '⚠ '}{toast.text}
+        </div>
+      )}
 
       <section className="reservations-summary">
         <div className="reservations-summary-card">
-          <span>Total Reservations</span>
+          <span>Bookings</span>
           <strong>{summary.total}</strong>
-          <small>All bookings</small>
+          <small>{formatDate(date)}</small>
         </div>
 
         <div className="reservations-summary-card">
           <span>Pending</span>
           <strong>{summary.pending}</strong>
-          <small>Awaiting confirmation</small>
+          <small>Awaiting a table</small>
         </div>
 
         <div className="reservations-summary-card">
           <span>Confirmed</span>
           <strong>{summary.confirmed}</strong>
-          <small>Confirmed bookings</small>
+          <small>Table allocated</small>
         </div>
 
         <div className="reservations-summary-card">
@@ -298,200 +286,252 @@ function ReservationsManagement() {
         </div>
       </section>
 
-      {showForm && (
-        <form className="reservations-form" onSubmit={handleSubmit}>
-          <h3>{editingId ? 'Edit Reservation' : 'Create New Reservation'}</h3>
+      {form && (
+        <form className="reservations-form" onSubmit={handleSubmit} noValidate>
+          <h3>{form.mode === 'create' ? 'New booking' : `Edit booking ${form.ref}`}</h3>
 
           <div className="reservations-form-grid">
-            <div>
-              <label htmlFor="reservationCustomer">Customer Name</label>
-              <input
-                id="reservationCustomer"
-                value={form.customer}
-                onChange={(event) =>
-                  setForm({ ...form, customer: event.target.value })
-                }
-                placeholder="Enter customer name"
-                required
-              />
-            </div>
+            {form.isGuest && (
+              <>
+                <div>
+                  <label htmlFor="guestName">Guest name *</label>
+                  <input
+                    id="guestName"
+                    value={form.guest_name}
+                    onChange={(e) => updateForm({ guest_name: e.target.value })}
+                    placeholder="e.g. Thabo Nkosi"
+                    aria-invalid={Boolean(formErrors.guest_name)}
+                  />
+                  {formErrors.guest_name && <p className="reservations-field-error">{formErrors.guest_name}</p>}
+                </div>
+
+                <div>
+                  <label htmlFor="guestPhone">Contact number *</label>
+                  <input
+                    id="guestPhone"
+                    type="tel"
+                    inputMode="tel"
+                    value={form.guest_phone}
+                    onChange={(e) => updateForm({ guest_phone: e.target.value })}
+                    placeholder="e.g. 082 123 4567"
+                    aria-invalid={Boolean(formErrors.guest_phone)}
+                  />
+                  <small className="reservations-help">10 digits, or +27 format</small>
+                  {formErrors.guest_phone && <p className="reservations-field-error">{formErrors.guest_phone}</p>}
+                </div>
+              </>
+            )}
+
+            {!form.isGuest && (
+              <div className="reservations-full-width">
+                <p className="reservations-help">
+                  Booking for registered customer <strong>{form.guest_name}</strong> ({form.guest_phone})
+                </p>
+              </div>
+            )}
 
             <div>
-              <label htmlFor="reservationPhone">Contact Number</label>
-              <input
-                id="reservationPhone"
-                type="tel"
-                value={form.phone}
-                onChange={(event) =>
-                  setForm({ ...form, phone: event.target.value })
-                }
-                placeholder="e.g. 071 234 5678"
-                required
-              />
-            </div>
-
-            <div>
-              <label htmlFor="reservationDate">Reservation Date</label>
+              <label htmlFor="reservationDate">Date *</label>
               <input
                 id="reservationDate"
                 type="date"
-                value={form.date}
-                min={new Date().toLocaleDateString('en-CA')}
-                onChange={(event) =>
-                  setForm({ ...form, date: event.target.value })
-                }
-                required
+                value={form.reservation_date}
+                min={today}
+                max={addDaysISO(today, 30)}
+                onChange={(e) => updateForm({ reservation_date: e.target.value })}
+                aria-invalid={Boolean(formErrors.reservation_date)}
               />
+              {formErrors.reservation_date && <p className="reservations-field-error">{formErrors.reservation_date}</p>}
             </div>
 
             <div>
-              <label htmlFor="reservationTime">Reservation Time</label>
-              <input
+              <label htmlFor="reservationTime">Start time *</label>
+              <select
                 id="reservationTime"
-                type="time"
-                value={form.time}
-                onChange={(event) =>
-                  setForm({ ...form, time: event.target.value })
-                }
-                required
-              />
+                value={form.start_time}
+                onChange={(e) => updateForm({ start_time: e.target.value })}
+                aria-invalid={Boolean(formErrors.start_time)}
+              >
+                {SLOTS.map((slot) => <option key={slot} value={slot}>{slot}</option>)}
+              </select>
+              <small className="reservations-help">Sittings last 2 hours</small>
+              {formErrors.start_time && <p className="reservations-field-error">{formErrors.start_time}</p>}
             </div>
 
             <div>
-              <label htmlFor="reservationGuests">Number of Guests</label>
+              <label htmlFor="partySize">Party size *</label>
               <input
-                id="reservationGuests"
+                id="partySize"
                 type="number"
+                inputMode="numeric"
                 min="1"
                 max="20"
-                value={form.guests}
-                onChange={(event) =>
-                  setForm({ ...form, guests: event.target.value })
-                }
-                required
+                value={form.party_size}
+                onChange={(e) => updateForm({ party_size: e.target.value })}
+                aria-invalid={Boolean(formErrors.party_size)}
               />
-            </div>
-
-            <div>
-              <label htmlFor="reservationTable">Assign Table</label>
-              <select
-                id="reservationTable"
-                value={form.tableNumber}
-                onChange={(event) =>
-                  setForm({ ...form, tableNumber: event.target.value })
-                }
-                required
-              >
-                <option value="">Select a table</option>
-                {tables.map((table) => (
-                  <option key={table} value={table}>
-                    Table {table}
-                  </option>
-                ))}
-              </select>
+              <small className="reservations-help">1–20 guests</small>
+              {formErrors.party_size && <p className="reservations-field-error">{formErrors.party_size}</p>}
             </div>
 
             <div className="reservations-full-width">
-              <label htmlFor="reservationNotes">Special Requests / Notes</label>
+              <span className="reservations-label">Table</span>
+              <div className="reservations-table-plan" role="group" aria-label="Choose a table">
+                <button
+                  type="button"
+                  className={`plan-table none ${!form.table_id ? 'selected' : ''}`}
+                  onClick={() => updateForm({ table_id: null })}
+                >
+                  No table yet
+                  <small>stays Pending</small>
+                </button>
+
+                {tablePlan.map((table) => {
+                  const ownBooking = form.ref && table.booking_ref === form.ref;
+                  const booked = table.booked && !ownBooking;
+                  const outOfService = table.status === 'OUT_OF_SERVICE';
+                  const tooSmall = Number(form.party_size) > table.capacity;
+                  const state = outOfService ? 'out' : booked ? 'booked' : tooSmall ? 'small' : 'free';
+
+                  return (
+                    <button
+                      key={table.table_id}
+                      type="button"
+                      className={`plan-table ${state} ${form.table_id === table.table_id ? 'selected' : ''}`}
+                      onClick={() => updateForm({ table_id: table.table_id })}
+                      disabled={outOfService}
+                      title={
+                        outOfService ? 'Out of service'
+                          : booked ? `Booked (${table.booking_ref})`
+                            : tooSmall ? `Seats ${table.capacity}` : 'Free'
+                      }
+                    >
+                      {table.table_number}
+                      <small>
+                        {outOfService ? 'out of service' : booked ? 'booked' : `${table.capacity} seats`}
+                      </small>
+                    </button>
+                  );
+                })}
+              </div>
+              <p className="reservations-help">
+                Green = free · amber = booked in this slot · grey = out of service. Choosing a table confirms the booking.
+              </p>
+            </div>
+
+            <div className="reservations-full-width">
+              <label htmlFor="reservationNotes">Special requests</label>
               <textarea
                 id="reservationNotes"
-                rows="3"
-                value={form.notes}
-                onChange={(event) =>
-                  setForm({ ...form, notes: event.target.value })
-                }
-                placeholder="Birthday, preferred seating or other requests..."
+                rows="2"
+                maxLength={255}
+                value={form.special_requests}
+                onChange={(e) => updateForm({ special_requests: e.target.value })}
+                placeholder="e.g. high chair, birthday (optional, max 255)"
               />
             </div>
           </div>
 
+          {formConflict && (
+            <div className="reservations-conflict" role="alert">
+              <strong>⚠ {formConflict.message}</strong>
+              {formConflict.alternatives.length > 0 && (
+                <div className="reservations-alternatives">
+                  <span>Available:</span>
+                  {formConflict.alternatives.map((alt) => (
+                    <button
+                      type="button"
+                      key={`${alt.table_id || 'any'}-${alt.start_time}`}
+                      onClick={() => applyAlternative(alt)}
+                    >
+                      {alt.table_number ? `${alt.table_number} at ${alt.start_time}` : `${alt.start_time}`}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
           <div className="reservations-form-actions">
-            <button type="submit" className="reservations-primary-btn">
-              {editingId ? 'Update Reservation' : 'Save Reservation'}
+            <button type="submit" className="reservations-primary-btn" disabled={saving}>
+              {saving ? 'Saving…' : 'Save'}
             </button>
 
-            <button
-              type="button"
-              className="reservations-cancel-btn"
-              onClick={closeForm}
-            >
+            <button type="button" className="reservations-cancel-btn" onClick={closeForm} disabled={saving}>
               Cancel
             </button>
           </div>
         </form>
       )}
 
-      {selectedReservation && (
+      {selected && (
         <section className="reservations-detail-panel">
           <div className="reservations-detail-heading">
             <div>
-              <h3>Reservation Details – {selectedReservation.id}</h3>
-              <p>{selectedReservation.customer}</p>
+              <h3>Reservation {selected.reservation_ref}</h3>
+              <p>{selected.customer_name}</p>
             </div>
 
-            <button
-              type="button"
-              className="reservations-cancel-btn"
-              onClick={() => setSelectedReservation(null)}
-            >
+            <button type="button" className="reservations-cancel-btn" onClick={() => setSelected(null)}>
               Close
             </button>
           </div>
 
           <div className="reservations-detail-grid">
-            <p><strong>Contact:</strong> {selectedReservation.phone}</p>
-            <p><strong>Date:</strong> {formatDate(selectedReservation.date)}</p>
-            <p><strong>Time:</strong> {selectedReservation.time}</p>
-            <p><strong>Guests:</strong> {selectedReservation.guests}</p>
-            <p><strong>Table:</strong> {selectedReservation.tableNumber}</p>
-            <p><strong>Status:</strong> {selectedReservation.status}</p>
+            <p><strong>Contact:</strong> {selected.customer_phone || '—'}</p>
+            <p><strong>Date:</strong> {formatDate(selected.reservation_date)}</p>
+            <p><strong>Time:</strong> {selected.start_time}–{selected.end_time}</p>
+            <p><strong>Party:</strong> {selected.party_size}</p>
+            <p><strong>Table:</strong> {selected.table_number || 'Not allocated'}</p>
+            <p><strong>Status:</strong> {STATUS_LABELS[selected.status]}</p>
           </div>
 
           <p className="reservations-notes">
-            <strong>Special Requests:</strong>{' '}
-            {selectedReservation.notes || 'No special requests.'}
+            <strong>Special requests:</strong> {selected.special_requests || 'None.'}
           </p>
+          {selected.cancel_reason && (
+            <p className="reservations-notes"><strong>Cancel reason:</strong> {selected.cancel_reason}</p>
+          )}
         </section>
       )}
 
       <section className="reservations-table-panel">
         <div className="reservations-table-heading">
           <div>
-            <h3>Customer Reservations</h3>
-            <p>View, update and manage restaurant bookings.</p>
+            <h3>Bookings for {formatDate(date)}</h3>
+            <p>Sorted by start time.</p>
           </div>
 
-          <button
-            type="button"
-            className="reservations-reset-btn"
-            onClick={resetSampleData}
-          >
-            Reset Sample Data
+          <button type="button" className="reservations-reset-btn" onClick={loadReservations} disabled={loading}>
+            Refresh
           </button>
         </div>
 
         <div className="reservations-filters">
           <input
             type="search"
-            placeholder="Search customer, phone or reservation ID..."
+            aria-label="Search reservations"
+            placeholder="Search name, phone or RS reference..."
             value={search}
             onChange={(event) => setSearch(event.target.value)}
           />
 
           <select
+            aria-label="Filter by status"
             value={statusFilter}
             onChange={(event) => setStatusFilter(event.target.value)}
           >
-            <option value="All">All Statuses</option>
-            {statuses.map((status) => (
-              <option key={status}>{status}</option>
+            <option value="">All statuses</option>
+            {Object.entries(STATUS_LABELS).map(([value, label]) => (
+              <option key={value} value={value}>{label}</option>
             ))}
           </select>
 
           <input
             type="date"
-            value={dateFilter}
-            onChange={(event) => setDateFilter(event.target.value)}
+            aria-label="Booking date"
+            value={date}
+            onChange={(event) => setDate(event.target.value || todayISO())}
           />
         </div>
 
@@ -499,82 +539,75 @@ function ReservationsManagement() {
           <table className="reservations-table">
             <thead>
               <tr>
-                <th>Reservation ID</th>
-                <th>Customer</th>
-                <th>Date</th>
+                <th>Ref</th>
+                <th>Guest</th>
                 <th>Time</th>
-                <th>Guests</th>
+                <th>Party</th>
                 <th>Table</th>
                 <th>Status</th>
-                <th>Update Status</th>
                 <th>Actions</th>
               </tr>
             </thead>
 
             <tbody>
-              {filteredReservations.map((reservation) => (
-                <tr key={reservation.id}>
-                  <td><strong>#{reservation.id}</strong></td>
-                  <td>
-                    <strong>{reservation.customer}</strong>
-                    <small className="reservations-phone">{reservation.phone}</small>
+              {loading && (
+                <tr><td colSpan="7" className="reservations-empty">Loading bookings…</td></tr>
+              )}
+
+              {!loading && loadError && (
+                <tr>
+                  <td colSpan="7" className="reservations-empty">
+                    <span role="alert">{loadError}</span>{' '}
+                    <button type="button" className="reservations-inline-btn" onClick={loadReservations}>Try again</button>
                   </td>
-                  <td>{formatDate(reservation.date)}</td>
-                  <td>{reservation.time}</td>
-                  <td>{reservation.guests}</td>
-                  <td>{reservation.tableNumber}</td>
+                </tr>
+              )}
+
+              {!loading && !loadError && visibleReservations.map((reservation) => (
+                <tr key={reservation.reservation_id}>
+                  <td><strong>{reservation.reservation_ref}</strong></td>
                   <td>
-                    <span
-                      className={`reservations-status ${reservation.status.toLowerCase()}`}
-                    >
-                      {reservation.status}
+                    <strong>{reservation.customer_name}</strong>
+                    <small className="reservations-phone">{reservation.customer_phone}</small>
+                  </td>
+                  <td>{reservation.start_time}–{reservation.end_time}</td>
+                  <td>{reservation.party_size}</td>
+                  <td>{reservation.table_number || '—'}</td>
+                  <td>
+                    <span className={`reservations-status ${statusClass(reservation.status)}`}>
+                      {STATUS_LABELS[reservation.status]}
                     </span>
                   </td>
                   <td>
-                    <select
-                      className="reservations-status-select"
-                      value={reservation.status}
-                      onChange={(event) =>
-                        updateStatus(reservation.id, event.target.value)
-                      }
-                    >
-                      {statuses.map((status) => (
-                        <option key={status}>{status}</option>
-                      ))}
-                    </select>
-                  </td>
-                  <td>
                     <div className="reservations-row-actions">
-                      <button
-                        type="button"
-                        onClick={() => setSelectedReservation(reservation)}
-                      >
-                        View
-                      </button>
+                      <button type="button" onClick={() => setSelected(reservation)}>View</button>
 
-                      <button
-                        type="button"
-                        onClick={() => openEditForm(reservation)}
-                      >
-                        Edit
-                      </button>
+                      {canEdit && EDITABLE.includes(reservation.status) && (
+                        <button type="button" onClick={() => openEdit(reservation)}>
+                          {reservation.table_id ? 'Edit' : 'Allocate'}
+                        </button>
+                      )}
 
-                      <button
-                        type="button"
-                        className="reservations-delete-btn"
-                        onClick={() => deleteReservation(reservation.id)}
-                      >
-                        Delete
-                      </button>
+                      {canEdit && (STATUS_ACTIONS[reservation.status] || []).map((action) => (
+                        <button
+                          key={action.status}
+                          type="button"
+                          className={action.danger ? 'reservations-delete-btn' : ''}
+                          disabled={busyRef === reservation.reservation_ref}
+                          onClick={() => changeStatus(reservation, action.status)}
+                        >
+                          {action.label}
+                        </button>
+                      ))}
                     </div>
                   </td>
                 </tr>
               ))}
 
-              {filteredReservations.length === 0 && (
+              {!loading && !loadError && visibleReservations.length === 0 && (
                 <tr>
-                  <td colSpan="9" className="reservations-empty">
-                    No matching reservations found.
+                  <td colSpan="7" className="reservations-empty">
+                    No bookings for this day{statusFilter || search ? ' match your filters' : ''}.
                   </td>
                 </tr>
               )}

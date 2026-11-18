@@ -14,8 +14,17 @@ import OrdersManagement from '../pages/OrdersManagement';
 import ReservationsManagement from '../pages/ReservationsManagement';
 import PaymentsManagement from '../pages/PaymentsManagement';
 import ReportsManagement from '../pages/ReportsManagement';
+import StaffLogin from '../pages/StaffLogin';
 import Cart from '../pages/customer/Cart';
 import CustomerMenu from '../pages/customer/CustomerMenu';
+
+// Staff route guard and role matrix (System Design Table 10 / Table 30)
+import RequireStaff from '../auth/RequireStaff';
+import { rolesFor } from '../auth/permissions';
+
+const staffPage = (path, element) => (
+  <RequireStaff roles={rolesFor(`/staff/${path}`)}>{element}</RequireStaff>
+);
 
 function AppRoutes() {
   return (
@@ -29,36 +38,43 @@ function AppRoutes() {
       {/* Customer menu route */}
       <Route path="/menu" element={<CustomerMenu />} />
 
-      {/* Customer menu route */}
-      <Route path="/menu" element={<CustomerMenu />} />
-
       {/* Customer shopping cart */}
-    <Route path="/cart" element={<Cart />} />
+      <Route path="/cart" element={<Cart />} />
 
-      {/* Staff management routes */}
-      <Route path="/staff" element={<StaffLayout />}>
+      {/* Staff login (public) */}
+      <Route path="/staff/login" element={<StaffLogin />} />
+
+      {/* Staff management routes - login required */}
+      <Route
+        path="/staff"
+        element={
+          <RequireStaff>
+            <StaffLayout />
+          </RequireStaff>
+        }
+      >
         <Route index element={<Navigate to="dashboard" replace />} />
 
         {/* Staff dashboard */}
-        <Route path="dashboard" element={<Dashboard />} />
+        <Route path="dashboard" element={staffPage('dashboard', <Dashboard />)} />
 
         {/* Orders */}
-        <Route path="orders" element={<OrdersManagement />} />
+        <Route path="orders" element={staffPage('orders', <OrdersManagement />)} />
 
         {/* Reservations */}
-        <Route path="reservations" element={<ReservationsManagement />} />
+        <Route path="reservations" element={staffPage('reservations', <ReservationsManagement />)} />
 
         {/* Menu management */}
-        <Route path="menu" element={<MenuManagement />} />
+        <Route path="menu" element={staffPage('menu', <MenuManagement />)} />
 
         {/* Inventory */}
-        <Route path="inventory" element={<InventoryManagement />} />
+        <Route path="inventory" element={staffPage('inventory', <InventoryManagement />)} />
 
         {/* Payments */}
-        <Route path="payments" element={<PaymentsManagement />} />
+        <Route path="payments" element={staffPage('payments', <PaymentsManagement />)} />
 
         {/* Reports */}
-        <Route path="reports" element={<ReportsManagement />} />
+        <Route path="reports" element={staffPage('reports', <ReportsManagement />)} />
       </Route>
 
       {/* Redirect unknown routes */}
