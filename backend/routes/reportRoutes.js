@@ -10,7 +10,7 @@ const router = express.Router();
 
 const params = z.object({
     type: z.enum(['orders', 'payments', 'reservations', 'stock'], {
-        errorMap: () => ({ message: 'Report type must be orders, payments, reservations or stock.' })
+        error: 'Report type must be orders, payments, reservations or stock.'
     })
 });
 

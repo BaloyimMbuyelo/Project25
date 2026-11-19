@@ -5,7 +5,8 @@ const helmet = require('helmet');
 const cookieParser = require('cookie-parser');
 require('dotenv').config({ path: path.join(__dirname, '.env'), quiet: true });
 
-const menuRoutes = require('./routes/menuRoutes');
+const settings = require('./config/settings');
+const { menuV1Router, legacyMenuRouter } = require('./routes/menuRoutes');
 const authRoutes = require('./routes/authRoutes');
 const reservationRoutes = require('./routes/reservationRoutes');
 const inventoryRoutes = require('./routes/inventoryRoutes');
@@ -45,6 +46,14 @@ app.use(cookieParser());
 // Serve frontend restaurant images (resolved from this file, not the cwd)
 app.use('/images', express.static(path.join(__dirname, '../frontend/public/images')));
 
+// Uploaded menu photos (System Design 4.4.1: served at /uploads). In
+// deployment Nginx serves this folder directly.
+app.use('/uploads', express.static(settings.UPLOAD_DIR, {
+    index: false,
+    dotfiles: 'deny',
+    maxAge: '7d'
+}));
+
 // API health check
 app.get('/', (req, res) => {
     res.json({
@@ -53,7 +62,8 @@ app.get('/', (req, res) => {
 });
 
 // Menu management routes
-app.use('/api/menu', menuRoutes);
+app.use('/api/v1/menu', menuV1Router);
+app.use('/api/menu', legacyMenuRouter); // read-only, old response shape
 
 // Customer registration and login routes
 app.use('/api/auth', authRoutes);

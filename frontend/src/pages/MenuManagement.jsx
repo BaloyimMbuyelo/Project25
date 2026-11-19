@@ -1,19 +1,24 @@
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { menuApi, menuImageSrc } from '../api/modules';
 import './MenuManagement.css';
 
-const API_URL = 'http://localhost:5000/api/menu';
+// Menu management (FR-05, FR-06) on the protected /api/v1/menu API.
+// Saving, availability, delete and photos need a Manager or Administrator.
+
+const MAX_PHOTO_BYTES = 1024 * 1024;
+const PHOTO_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
 
 const emptyForm = {
   name: '',
   description: '',
-  category: 'Main Course',
+  category_id: '',
   price: '',
-  image: '',
 };
 
 function MenuManagement() {
   const [meals, setMeals] = useState([]);
+  const [categories, setCategories] = useState([]);
   const [search, setSearch] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('All');
   const [showForm, setShowForm] = useState(false);
@@ -23,34 +28,25 @@ function MenuManagement() {
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
 
-  const categories = [
-    'All',
-    'Main Course',
-    'Starters',
-    'Desserts',
-    'Drinks',
-  ];
+  // Photo: the saved one, a newly chosen file and its preview
+  const [currentImage, setCurrentImage] = useState(null);
+  const [photoFile, setPhotoFile] = useState(null);
+  const [photoPreview, setPhotoPreview] = useState('');
+  const [removePhoto, setRemovePhoto] = useState(false);
+  const fileInput = useRef(null);
 
-  // Load menu items from MySQL through the backend API
+  // Load categories and menu items from the API
   async function fetchMeals() {
     try {
       setError('');
 
-      const response = await fetch(API_URL);
+      const [itemsResponse, categoriesResponse] = await Promise.all([
+        menuApi.items(),
+        menuApi.categories(),
+      ]);
 
-      if (!response.ok) {
-        throw new Error('Unable to retrieve menu items.');
-      }
-
-      const data = await response.json();
-
-      const formattedMeals = data.map((meal) => ({
-        ...meal,
-        price: Number(meal.price),
-        available: Boolean(meal.available),
-      }));
-
-      setMeals(formattedMeals);
+      setMeals(itemsResponse.data);
+      setCategories(categoriesResponse.data);
     } catch (err) {
       setError(err.message || 'Could not connect to the backend.');
     } finally {
@@ -62,6 +58,11 @@ function MenuManagement() {
     fetchMeals();
   }, []);
 
+  // Release the preview URL when it changes or the page closes
+  useEffect(() => () => {
+    if (photoPreview) URL.revokeObjectURL(photoPreview);
+  }, [photoPreview]);
+
   // Search and category filtering
   const filteredMeals = meals.filter((meal) => {
     const matchesSearch =
@@ -70,30 +71,40 @@ function MenuManagement() {
 
     const matchesCategory =
       categoryFilter === 'All' ||
-      meal.category === categoryFilter;
+      String(meal.category_id) === categoryFilter;
 
     return matchesSearch && matchesCategory;
   });
 
+  function resetPhoto() {
+    setPhotoFile(null);
+    setPhotoPreview('');
+    setRemovePhoto(false);
+    if (fileInput.current) fileInput.current.value = '';
+  }
+
   // Open add form
   function openAddForm() {
     setEditingId(null);
-    setForm({ ...emptyForm });
+    setForm({ ...emptyForm, category_id: categories[0] ? String(categories[0].category_id) : '' });
+    setCurrentImage(null);
+    resetPhoto();
     setShowForm(true);
   }
 
   // Open edit form
   function openEditForm(meal) {
-    setEditingId(meal.id);
+    setEditingId(meal.menu_item_id);
 
     setForm({
       name: meal.name,
       description: meal.description || '',
-      category: meal.category,
+      category_id: String(meal.category_id),
       price: String(meal.price),
-      image: meal.image || '',
     });
 
+    setCurrentImage(meal.image_path);
+    resetPhoto();
     setShowForm(true);
   }
 
@@ -102,78 +113,81 @@ function MenuManagement() {
     setShowForm(false);
     setEditingId(null);
     setForm({ ...emptyForm });
+    setCurrentImage(null);
+    resetPhoto();
   }
 
-  // Remove image URL
+  // Choose a photo (checked again by the server)
+  function choosePhoto(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    if (!PHOTO_TYPES.includes(file.type)) {
+      alert('Please choose a JPEG, PNG or WebP photo.');
+      event.target.value = '';
+      return;
+    }
+
+    if (file.size > MAX_PHOTO_BYTES) {
+      alert('The photo must be 1 MB or smaller.');
+      event.target.value = '';
+      return;
+    }
+
+    setPhotoFile(file);
+    setPhotoPreview(URL.createObjectURL(file));
+    setRemovePhoto(false);
+  }
+
   function removeImage() {
-    setForm((current) => ({
-      ...current,
-      image: '',
-    }));
+    resetPhoto();
+    setRemovePhoto(Boolean(currentImage));
   }
 
-  // Add or update meal in MySQL
+  const previewSrc = photoPreview || (!removePhoto && menuImageSrc(currentImage)) || '';
+
+  // Add or update the menu item, then its photo
   async function handleSubmit(e) {
     e.preventDefault();
 
     const price = Number(form.price);
-    const imageUrl = form.image.trim();
 
     if (
       !form.name.trim() ||
       !Number.isFinite(price) ||
-      price <= 0
+      price <= 0 ||
+      price > 999.99
     ) {
-      alert('Please enter a valid meal name and price.');
+      alert('Please enter a valid meal name and a price between R0.01 and R999.99.');
       return;
     }
 
-    if (
-      imageUrl &&
-      !/^https?:\/\/\S+$/i.test(imageUrl) &&
-      !imageUrl.startsWith('/')
-    ) {
-      alert('Please enter a valid image URL or local image path.');
+    if (!form.category_id) {
+      alert('Please choose a category.');
       return;
     }
-
-    const existingMeal = meals.find(
-      (meal) => meal.id === editingId
-    );
 
     const mealData = {
       name: form.name.trim(),
-      description: form.description.trim(),
-      category: form.category,
-      price,
-      image: imageUrl,
-      available: editingId !== null
-        ? existingMeal.available
-        : true,
+      description: form.description.trim() || null,
+      category_id: Number(form.category_id),
+      price: Math.round(price * 100) / 100,
     };
 
     try {
       setSaving(true);
       setError('');
 
-      const url = editingId !== null
-        ? `${API_URL}/${editingId}`
-        : API_URL;
+      const saved = editingId !== null
+        ? await menuApi.update(editingId, mealData)
+        : await menuApi.create(mealData);
 
-      const method = editingId !== null ? 'PUT' : 'POST';
+      const itemId = saved.data.menu_item_id;
 
-      const response = await fetch(url, {
-        method,
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(mealData),
-      });
-
-      const result = await response.json();
-
-      if (!response.ok) {
-        throw new Error(result.message || 'Unable to save menu item.');
+      if (photoFile) {
+        await menuApi.uploadImage(itemId, photoFile);
+      } else if (removePhoto) {
+        await menuApi.removeImage(itemId);
       }
 
       await fetchMeals();
@@ -191,51 +205,26 @@ function MenuManagement() {
     }
   }
 
-  // Enable or disable meal in MySQL
-  async function toggleAvailability(id) {
-    const meal = meals.find((item) => item.id === id);
-
-    if (!meal) return;
-
+  // Enable or disable a meal
+  async function toggleAvailability(meal) {
     try {
-      const response = await fetch(`${API_URL}/${id}/availability`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          available: !meal.available,
-        }),
-      });
-
-      const result = await response.json();
-
-      if (!response.ok) {
-        throw new Error(result.message || 'Unable to update availability.');
-      }
-
+      await menuApi.setAvailability(meal.menu_item_id, !meal.is_available);
       await fetchMeals();
     } catch (err) {
       alert(err.message || 'Could not update meal availability.');
     }
   }
 
-  // Delete meal from MySQL
-  async function deleteMeal(id) {
+  // Remove a meal from the menu (past orders keep it)
+  async function deleteMeal(meal) {
     if (
-      window.confirm('Are you sure you want to delete this menu item?')
+      window.confirm(
+        `Delete '${meal.name}'?\n\nThis removes the item from the menu. Past orders that include it are kept.\n\n` +
+        'Tip: use Disable instead if it is only temporarily off the menu.'
+      )
     ) {
       try {
-        const response = await fetch(`${API_URL}/${id}`, {
-          method: 'DELETE',
-        });
-
-        const result = await response.json();
-
-        if (!response.ok) {
-          throw new Error(result.message || 'Unable to delete menu item.');
-        }
-
+        await menuApi.remove(meal.menu_item_id);
         await fetchMeals();
         alert('Menu item deleted successfully!');
       } catch (err) {
@@ -252,7 +241,7 @@ function MenuManagement() {
         <div>
           <h2>Menu Management</h2>
           <p>
-            Manage meals, descriptions, images, prices and availability.
+            Manage meals, descriptions, photos, prices and availability.
           </p>
         </div>
 
@@ -274,12 +263,12 @@ function MenuManagement() {
 
         <div>
           <span>Available Meals</span>
-          <h2>{meals.filter((meal) => meal.available).length}</h2>
+          <h2>{meals.filter((meal) => meal.is_available).length}</h2>
         </div>
 
         <div>
           <span>Unavailable Meals</span>
-          <h2>{meals.filter((meal) => !meal.available).length}</h2>
+          <h2>{meals.filter((meal) => !meal.is_available).length}</h2>
         </div>
       </div>
 
@@ -296,6 +285,7 @@ function MenuManagement() {
           <input
             id="mealName"
             type="text"
+            maxLength={50}
             placeholder="Enter meal name"
             value={form.name}
             onChange={(e) =>
@@ -307,6 +297,7 @@ function MenuManagement() {
           <label htmlFor="mealDescription">Meal Description</label>
           <textarea
             id="mealDescription"
+            maxLength={255}
             placeholder="Describe the meal and its ingredients"
             value={form.description}
             onChange={(e) =>
@@ -318,18 +309,17 @@ function MenuManagement() {
           <label htmlFor="mealCategory">Category</label>
           <select
             id="mealCategory"
-            value={form.category}
+            value={form.category_id}
             onChange={(e) =>
-              setForm({ ...form, category: e.target.value })
+              setForm({ ...form, category_id: e.target.value })
             }
+            required
           >
-            {categories
-              .filter((category) => category !== 'All')
-              .map((category) => (
-                <option key={category} value={category}>
-                  {category}
-                </option>
-              ))}
+            {categories.map((category) => (
+              <option key={category.category_id} value={category.category_id}>
+                {category.name}
+              </option>
+            ))}
           </select>
 
           <label htmlFor="mealPrice">Price (R)</label>
@@ -337,6 +327,7 @@ function MenuManagement() {
             id="mealPrice"
             type="number"
             min="0.01"
+            max="999.99"
             step="0.01"
             placeholder="Enter meal price"
             value={form.price}
@@ -345,33 +336,32 @@ function MenuManagement() {
             }
             required
           />
+          <small>Price changes are logged.</small>
 
-          {/* Food Image URL */}
+          {/* Food photo upload */}
           <label htmlFor="mealImage">
-            Food Image URL or Local Image Path (optional)
+            Food Photo (optional)
           </label>
 
           <input
             id="mealImage"
-            type="text"
-            placeholder="/images/restaurant-pictures/food.jpeg"
-            value={form.image}
-            onChange={(e) =>
-              setForm({ ...form, image: e.target.value })
-            }
+            ref={fileInput}
+            type="file"
+            accept="image/jpeg,image/png,image/webp"
+            onChange={choosePhoto}
           />
 
           <small>
-            Use a project image path or a direct image URL.
+            JPEG, PNG or WebP, up to 1 MB. Large photos are resized automatically.
           </small>
 
           {/* Image Preview */}
-          {form.image.trim() && (
+          {previewSrc && (
             <div className="image-preview">
               <p>Food Image Preview</p>
 
               <img
-                src={form.image.trim()}
+                src={previewSrc}
                 alt="Meal preview"
                 onError={(e) => {
                   e.currentTarget.style.display = 'none';
@@ -444,9 +434,10 @@ function MenuManagement() {
             value={categoryFilter}
             onChange={(e) => setCategoryFilter(e.target.value)}
           >
+            <option value="All">All</option>
             {categories.map((category) => (
-              <option key={category} value={category}>
-                {category}
+              <option key={category.category_id} value={String(category.category_id)}>
+                {category.name}
               </option>
             ))}
           </select>
@@ -478,12 +469,12 @@ function MenuManagement() {
               ) : (
                 <>
                   {filteredMeals.map((meal) => (
-                    <tr key={meal.id}>
+                    <tr key={meal.menu_item_id}>
                       <td>
-                        {meal.image ? (
+                        {meal.image_path ? (
                           <img
                             className="meal-thumbnail"
-                            src={meal.image}
+                            src={menuImageSrc(meal.image_path)}
                             alt={meal.name}
                             onError={(e) => {
                               e.currentTarget.style.display = 'none';
@@ -503,16 +494,16 @@ function MenuManagement() {
                         </p>
                       </td>
 
-                      <td>{meal.category}</td>
+                      <td>{meal.category_name}</td>
                       <td>R {meal.price.toFixed(2)}</td>
 
                       <td>
                         <span
                           className={`status ${
-                            meal.available ? 'completed' : 'pending'
+                            meal.is_available ? 'completed' : 'pending'
                           }`}
                         >
-                          {meal.available ? 'Available' : 'Unavailable'}
+                          {meal.is_available ? 'Available' : 'Unavailable'}
                         </span>
                       </td>
 
@@ -529,15 +520,15 @@ function MenuManagement() {
                           <button
                             type="button"
                             className="table-action"
-                            onClick={() => toggleAvailability(meal.id)}
+                            onClick={() => toggleAvailability(meal)}
                           >
-                            {meal.available ? 'Disable' : 'Enable'}
+                            {meal.is_available ? 'Disable' : 'Enable'}
                           </button>
 
                           <button
                             type="button"
                             className="delete-action"
-                            onClick={() => deleteMeal(meal.id)}
+                            onClick={() => deleteMeal(meal)}
                           >
                             Delete
                           </button>

@@ -24,7 +24,15 @@ export class ApiError extends Error {
   }
 }
 
-export async function apiRequest(path, { method = 'GET', body, query } = {}) {
+// File upload (multipart/form-data). The browser sets the Content-Type
+// boundary itself, so no JSON header is sent.
+export function apiUpload(path, fieldName, file) {
+  const form = new FormData();
+  form.append(fieldName, file);
+  return apiRequest(path, { method: 'POST', formData: form });
+}
+
+export async function apiRequest(path, { method = 'GET', body, query, formData } = {}) {
   const url = new URL(`${API_BASE}${path}`);
 
   if (query) {
@@ -46,7 +54,7 @@ export async function apiRequest(path, { method = 'GET', body, query } = {}) {
       method,
       headers,
       credentials: 'include', // send the httpOnly ubms_token cookie
-      body: body !== undefined ? JSON.stringify(body) : undefined,
+      body: formData || (body !== undefined ? JSON.stringify(body) : undefined),
     });
   } catch {
     throw new ApiError(0, { message: 'Unable to reach the server. Check your connection and try again.' });

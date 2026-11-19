@@ -33,6 +33,12 @@ module.exports = Object.freeze({
     // Reports
     REPORT_MAX_DAYS: int('REPORT_MAX_DAYS', 366),
 
+    // Menu images (System Design 4.4.1, 4.4.5, 4.8.4). In deployment set
+    // UPLOAD_DIR outside the code folder, e.g. /opt/ubms/server/uploads.
+    UPLOAD_DIR: process.env.UPLOAD_DIR || require('path').join(__dirname, '..', 'uploads'),
+    MENU_IMAGE_MAX_BYTES: int('MENU_IMAGE_MAX_BYTES', 1024 * 1024),
+    MENU_IMAGE_MAX_PX: int('MENU_IMAGE_MAX_PX', 800),
+
     // Payments
     VAT_RATE: 0.15,
 
