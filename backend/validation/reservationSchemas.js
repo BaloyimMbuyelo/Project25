@@ -1,9 +1,6 @@
-const { z, isoDate, hhmm, optionalText, phone, positiveId } = require('./common');
+const { z, isoDate, hhmm, optionalText, phone, positiveId, msg } = require('./common');
 
-const partySize = z.number({
-    required_error: 'Party size is required.',
-    invalid_type_error: 'Party size must be a number.'
-})
+const partySize = z.number(msg('Party size is required.', 'Party size must be a number.'))
     .int('Party size must be a whole number.')
     .min(1, 'Party size must be between 1 and 20.')
     .max(20, 'Party size must be between 1 and 20.');
@@ -40,7 +37,7 @@ const updateReservation = z.object({
 
 const changeStatus = z.object({
     status: z.enum(['SEATED', 'COMPLETED', 'CANCELLED', 'NO_SHOW'], {
-        errorMap: () => ({ message: 'Choose Seated, Completed, Cancelled or No-show.' })
+        error: 'Choose Seated, Completed, Cancelled or No-show.'
     }),
     reason: optionalText(255, 'Reason')
 });
@@ -53,7 +50,7 @@ const listQuery = z.object({
 
 const availabilityQuery = z.object({
     date: isoDate('Choose a date.'),
-    party_size: z.coerce.number({ invalid_type_error: 'Party size must be a number.' })
+    party_size: z.coerce.number(msg('Party size must be a number.'))
         .int('Party size must be a whole number.')
         .min(1, 'Party size must be between 1 and 20.')
         .max(20, 'Party size must be between 1 and 20.')

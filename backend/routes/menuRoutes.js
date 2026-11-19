@@ -1,220 +1,45 @@
-
 const express = require('express');
-const router = express.Router();
 
-const { db } = require('../config/db');
+const controller = require('../controllers/menuController');
+const schemas = require('../validation/menuSchemas');
+const { idParam } = require('../validation/common');
+const validate = require('../middleware/validate');
+const { menuImageUpload } = require('../middleware/upload');
+const { authenticateToken, authorizeRoles } = require('../middleware/authMiddleware');
+const { AppError } = require('../utils/errors');
+const { ROLES } = require('../utils/roles');
 
-// Get all menu items
-router.get('/', async (req, res) => {
-    try {
-        const [meals] = await db.query(
-            'SELECT * FROM menu_items ORDER BY id ASC'
-        );
+// ---------- /api/v1/menu (System Design Table 11) ----------
+// Reading the menu is public; every change needs a Manager or Administrator
+// (Table 30) and is audited.
+const v1 = express.Router();
+const managers = [authenticateToken, authorizeRoles(ROLES.MANAGER, ROLES.ADMIN)];
 
-        res.status(200).json(meals);
-    } catch (error) {
-        console.error('Error fetching menu:', error.message);
-        res.status(500).json({
-            message: 'Failed to retrieve menu items.'
-        });
-    }
+v1.get('/categories', controller.categories);
+v1.post('/categories', ...managers, validate({ body: schemas.categoryBody }), controller.createCategory);
+v1.put('/categories/:id', ...managers, validate({ params: idParam, body: schemas.categoryBody }), controller.updateCategory);
+v1.patch('/categories/:id/status', ...managers, validate({ params: idParam, body: schemas.categoryStatus }), controller.setCategoryStatus);
+
+v1.get('/items', validate({ query: schemas.listQuery }), controller.items);
+v1.get('/items/:id', validate({ params: idParam }), controller.item);
+v1.post('/items', ...managers, validate({ body: schemas.itemBody }), controller.createItem);
+v1.put('/items/:id', ...managers, validate({ params: idParam, body: schemas.itemBody }), controller.updateItem);
+v1.patch('/items/:id/availability', ...managers, validate({ params: idParam, body: schemas.availability }), controller.setAvailability);
+v1.delete('/items/:id', ...managers, validate({ params: idParam }), controller.deleteItem);
+v1.post('/items/:id/image', ...managers, validate({ params: idParam }), menuImageUpload, controller.uploadImage);
+v1.delete('/items/:id/image', ...managers, validate({ params: idParam }), controller.removeImage);
+
+// ---------- /api/menu (old address, read-only) ----------
+// Kept so the current customer menu keeps working until it moves to
+// /api/v1/menu/items. Changes through the old address are refused.
+const legacy = express.Router();
+
+legacy.get('/', controller.legacyList);
+legacy.get('/:id', validate({ params: idParam }), controller.legacyItem);
+legacy.all('/{*rest}', () => {
+    throw new AppError(410, 'Menu changes have moved to /api/v1/menu/items and need a Manager or Administrator login.', {
+        code: 'MOVED'
+    });
 });
 
-// Get one menu item
-router.get('/:id', async (req, res) => {
-    try {
-        const [meals] = await db.query(
-            'SELECT * FROM menu_items WHERE id = ?',
-            [req.params.id]
-        );
-
-        if (meals.length === 0) {
-            return res.status(404).json({
-                message: 'Menu item not found.'
-            });
-        }
-
-        res.json(meals[0]);
-    } catch (error) {
-        res.status(500).json({
-            message: 'Failed to retrieve menu item.'
-        });
-    }
-});
-
-// Add a new menu item
-router.post('/', async (req, res) => {
-    try {
-        const {
-            name,
-            description,
-            category,
-            price,
-            image,
-            available
-        } = req.body;
-
-        if (
-            !name?.trim() ||
-            !category?.trim() ||
-            !Number.isFinite(Number(price)) ||
-            Number(price) <= 0
-        ) {
-            return res.status(400).json({
-                message: 'Please provide a valid name, category and price.'
-            });
-        }
-
-        const [result] = await db.query(
-            `INSERT INTO menu_items
-            (name, description, category, price, image, available)
-            VALUES (?, ?, ?, ?, ?, ?)`,
-            [
-                name.trim(),
-                description || '',
-                category,
-                Number(price),
-                image || '',
-                available === undefined ? true : Boolean(available)
-            ]
-        );
-
-        const [newMeal] = await db.query(
-            'SELECT * FROM menu_items WHERE id = ?',
-            [result.insertId]
-        );
-
-        res.status(201).json(newMeal[0]);
-    } catch (error) {
-        console.error('Error adding meal:', error.message);
-        res.status(500).json({
-            message: 'Failed to add menu item.'
-        });
-    }
-});
-
-// Update a menu item
-router.put('/:id', async (req, res) => {
-    try {
-        const {
-            name,
-            description,
-            category,
-            price,
-            image,
-            available
-        } = req.body;
-
-        if (
-            !name?.trim() ||
-            !category?.trim() ||
-            !Number.isFinite(Number(price)) ||
-            Number(price) <= 0
-        ) {
-            return res.status(400).json({
-                message: 'Please provide a valid name, category and price.'
-            });
-        }
-
-        const [result] = await db.query(
-            `UPDATE menu_items
-             SET name = ?,
-                 description = ?,
-                 category = ?,
-                 price = ?,
-                 image = ?,
-                 available = ?
-             WHERE id = ?`,
-            [
-                name.trim(),
-                description || '',
-                category,
-                Number(price),
-                image || '',
-                Boolean(available),
-                req.params.id
-            ]
-        );
-
-        if (result.affectedRows === 0) {
-            return res.status(404).json({
-                message: 'Menu item not found.'
-            });
-        }
-
-        const [updatedMeal] = await db.query(
-            'SELECT * FROM menu_items WHERE id = ?',
-            [req.params.id]
-        );
-
-        res.json(updatedMeal[0]);
-    } catch (error) {
-        console.error('Error updating meal:', error.message);
-        res.status(500).json({
-            message: 'Failed to update menu item.'
-        });
-    }
-});
-
-// Enable or disable a menu item
-router.patch('/:id/availability', async (req, res) => {
-    try {
-        const { available } = req.body;
-
-        if (typeof available !== 'boolean') {
-            return res.status(400).json({
-                message: 'Availability must be true or false.'
-            });
-        }
-
-        const [result] = await db.query(
-            'UPDATE menu_items SET available = ? WHERE id = ?',
-            [available, req.params.id]
-        );
-
-        if (result.affectedRows === 0) {
-            return res.status(404).json({
-                message: 'Menu item not found.'
-            });
-        }
-
-        const [updatedMeal] = await db.query(
-            'SELECT * FROM menu_items WHERE id = ?',
-            [req.params.id]
-        );
-
-        res.json(updatedMeal[0]);
-    } catch (error) {
-        console.error('Error changing availability:', error.message);
-        res.status(500).json({
-            message: 'Failed to update availability.'
-        });
-    }
-});
-
-// Delete a menu item
-router.delete('/:id', async (req, res) => {
-    try {
-        const [result] = await db.query(
-            'DELETE FROM menu_items WHERE id = ?',
-            [req.params.id]
-        );
-
-        if (result.affectedRows === 0) {
-            return res.status(404).json({
-                message: 'Menu item not found.'
-            });
-        }
-
-        res.json({
-            message: 'Menu item deleted successfully.'
-        });
-    } catch (error) {
-        console.error('Error deleting meal:', error.message);
-        res.status(500).json({
-            message: 'Failed to delete menu item.'
-        });
-    }
-});
-
-module.exports = router;
+module.exports = { menuV1Router: v1, legacyMenuRouter: legacy };

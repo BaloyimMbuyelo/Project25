@@ -1,4 +1,4 @@
-import { apiRequest } from './client';
+import { apiRequest, apiUpload, assetUrl } from './client';
 
 // One function per endpoint (System Design Table 11). Each returns the
 // response envelope { data, message }.
@@ -16,6 +16,29 @@ export const authApi = {
       body: { current_password: currentPassword, new_password: newPassword, confirm_password: confirmPassword },
     }),
 };
+
+// Menu (FR-05 to FR-07). Reading is public; changes need Manager or Admin.
+export const menuApi = {
+  categories: () => apiRequest('/api/v1/menu/categories'),
+  items: (query) => apiRequest('/api/v1/menu/items', { query }),
+  item: (id) => apiRequest(`/api/v1/menu/items/${id}`),
+  create: (body) => apiRequest('/api/v1/menu/items', { method: 'POST', body }),
+  update: (id, body) => apiRequest(`/api/v1/menu/items/${id}`, { method: 'PUT', body }),
+  setAvailability: (id, isAvailable) =>
+    apiRequest(`/api/v1/menu/items/${id}/availability`, { method: 'PATCH', body: { is_available: isAvailable } }),
+  remove: (id) => apiRequest(`/api/v1/menu/items/${id}`, { method: 'DELETE' }),
+  uploadImage: (id, file) => apiUpload(`/api/v1/menu/items/${id}/image`, 'image', file),
+  removeImage: (id) => apiRequest(`/api/v1/menu/items/${id}/image`, { method: 'DELETE' }),
+  createCategory: (body) => apiRequest('/api/v1/menu/categories', { method: 'POST', body }),
+  updateCategory: (id, body) => apiRequest(`/api/v1/menu/categories/${id}`, { method: 'PUT', body }),
+  setCategoryActive: (id, isActive) =>
+    apiRequest(`/api/v1/menu/categories/${id}/status`, { method: 'PATCH', body: { is_active: isActive } }),
+};
+
+// Uploaded photos live on the API server (/uploads/...); the original sample
+// photos are in the frontend's public/images folder.
+export const menuImageSrc = (imagePath) =>
+  imagePath && imagePath.startsWith('/uploads/') ? assetUrl(imagePath) : imagePath;
 
 export const ordersApi = {
   list: (query) => apiRequest('/api/v1/orders', { query }),
