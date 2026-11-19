@@ -12,10 +12,10 @@ import './PaymentsManagement.css';
 // Payment is taken at the counter and recorded here; there is no live gateway (Q5).
 
 const ORDER_STATUS = {
-  PENDING: 'Pending', ACCEPTED: 'Confirmed', PREPARING: 'Preparing',
+  PENDING: 'Pending', CONFIRMED: 'Confirmed', PREPARING: 'Preparing',
   READY: 'Ready', COMPLETED: 'Completed', CANCELLED: 'Cancelled',
 };
-const ORDER_TYPES = { DINE_IN: 'Dine-in', TAKEAWAY: 'Collection' };
+const ORDER_TYPES = { DINE_IN: 'Dine-in', COLLECTION: 'Collection' };
 
 const toCents = (value) => Math.round(Number(value) * 100);
 const isCash = (method) => method?.method_name?.toLowerCase() === 'cash';

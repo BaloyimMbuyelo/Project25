@@ -59,7 +59,7 @@ async function createOrder({ status = 'READY', lines }) {
     const totalCents = lines.reduce((sum, [price, qty]) => sum + Math.round(price * 100) * qty, 0);
 
     const [order] = await db.query(
-        `INSERT INTO orders (guest_name, order_type, order_status, total_amount) VALUES (?, 'TAKEAWAY', ?, ?)`,
+        `INSERT INTO orders (guest_name, order_type, order_status, total_amount) VALUES (?, 'COLLECTION', ?, ?)`,
         [`Test guest ${tag}`, status, totalCents / 100]
     );
     for (const [price, qty] of lines) {

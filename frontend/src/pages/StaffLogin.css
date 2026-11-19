@@ -136,3 +136,28 @@
   font-size: 13px;
   font-weight: 600;
 }
+
+.staff-login-help {
+  color: #777;
+  font-size: 11px;
+}
+
+.staff-login-field-error {
+  color: #b63e3e;
+  font-size: 12px;
+}
+
+.staff-login-card input[aria-invalid="true"] {
+  border-color: #d35b5b;
+}
+
+.staff-login-card .staff-login-link {
+  background: none;
+  border: none;
+  color: #8a5a2f;
+  text-decoration: underline;
+  font-size: 13px;
+  padding: 0;
+  min-height: auto;
+  margin: 0;
+}

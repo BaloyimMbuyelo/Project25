@@ -1,7 +1,10 @@
 
+import { useCallback } from 'react';
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
+import { authApi } from '../api/modules';
 import { STAFF_PAGES, hasRole } from '../auth/permissions';
 import { clearSession, getUser } from '../auth/session';
+import useIdleLogout from '../auth/useIdleLogout';
 import { initials } from '../utils/format';
 
 function StaffLayout() {
@@ -16,10 +19,22 @@ function StaffLayout() {
     STAFF_PAGES.find((item) => item.path === location.pathname)?.name
     || 'Dashboard';
 
-  function logout() {
+  // Ends the server session (clears the httpOnly cookie) as well as the tab's
+  // record of who is logged in (FR-23).
+  const endSession = useCallback(async (expired) => {
+    try {
+      await authApi.logout();
+    } catch {
+      // Still clear locally if the server cannot be reached
+    }
     clearSession();
-    navigate('/staff/login', { replace: true });
-  }
+    navigate('/staff/login', { replace: true, state: expired ? { expired: true } : undefined });
+  }, [navigate]);
+
+  const logout = () => endSession(false);
+
+  // 'Your session has expired' after 30 minutes without activity
+  useIdleLogout(useCallback(() => endSession(true), [endSession]));
 
   return (
     <div className="app">
