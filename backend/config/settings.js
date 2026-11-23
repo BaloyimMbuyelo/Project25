@@ -13,6 +13,26 @@ module.exports = Object.freeze({
     RES_LAST_SLOT: process.env.RES_LAST_SLOT || '21:00',
     RES_NO_SHOW_GRACE_MIN: int('RES_NO_SHOW_GRACE_MIN', 15),
 
+    // Authentication (Table 14, 4.8.2)
+    JWT_EXPIRES_IN: process.env.JWT_EXPIRES_IN || '8h',
+    SESSION_HOURS: int('SESSION_HOURS', 8),
+    LOGIN_MAX_ATTEMPTS: int('LOGIN_MAX_ATTEMPTS', 5),
+    LOCK_MIN: int('LOCK_MIN', 15),
+    // Requests per IP to the login endpoints per window (on top of account lockout)
+    LOGIN_RATE_LIMIT: int('LOGIN_RATE_LIMIT', 20),
+    LOGIN_RATE_WINDOW_MIN: int('LOGIN_RATE_WINDOW_MIN', 15),
+    // Secure cookies work on https and on http://localhost; set false only for
+    // plain-http LAN testing.
+    COOKIE_SECURE: process.env.COOKIE_SECURE !== 'false',
+    COOKIE_NAME: 'ubms_token',
+
+    // Orders (Table 14)
+    ORDER_MAX_QTY: int('ORDER_MAX_QTY', 25),
+    ORDER_MAX_LINES: int('ORDER_MAX_LINES', 50),
+
+    // Reports
+    REPORT_MAX_DAYS: int('REPORT_MAX_DAYS', 366),
+
     // Payments
     VAT_RATE: 0.15,
 

@@ -5,7 +5,7 @@ import './Receipt.css';
 // Receipt / tax invoice (FR-19, System Design Figure 32).
 // Prints on 80 mm thermal or A4 through the browser print dialog.
 
-const ORDER_TYPES = { DINE_IN: 'Dine-in', TAKEAWAY: 'Collection' };
+const ORDER_TYPES = { DINE_IN: 'Dine-in', COLLECTION: 'Collection' };
 
 function Receipt({ receipt, onClose }) {
   useEffect(() => {

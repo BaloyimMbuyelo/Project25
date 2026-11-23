@@ -120,7 +120,7 @@ async function seedReadyOrders() {
         const [order] = await db.query(
             `INSERT INTO orders (guest_name, order_type, order_status, total_amount)
              VALUES (?, ?, 'READY', ?)`,
-            [DEMO_GUESTS[i], i === 0 ? 'DINE_IN' : 'TAKEAWAY', totalCents / 100]
+            [DEMO_GUESTS[i], i === 0 ? 'DINE_IN' : 'COLLECTION', totalCents / 100]
         );
 
         for (const [item, qty] of lines) {

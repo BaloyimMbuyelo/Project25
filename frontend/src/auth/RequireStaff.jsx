@@ -19,7 +19,8 @@ function RequireStaff({ roles, children }) {
     return () => window.removeEventListener(SESSION_EXPIRED_EVENT, onExpired);
   }, [navigate, location.pathname]);
 
-  if (!user || user.role === ROLES.CUSTOMER) {
+  // Not logged in, or still on a temporary password (P11) -> login page
+  if (!user || user.role === ROLES.CUSTOMER || user.must_change_pw) {
     return <Navigate to="/staff/login" replace state={{ from: location.pathname }} />;
   }
 
