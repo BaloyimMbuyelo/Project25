@@ -59,8 +59,8 @@ async function createUser(role, label, { status = 'ACTIVE', mustChange = 0 } = {
 
 async function createMenuItem(label, price, available = true) {
     const [result] = await db.query(
-        `INSERT INTO menu_items (name, description, category, price, image, available)
-         VALUES (?, 'Test item', 'Test', ?, '', ?)`,
+        `INSERT INTO menu_items (name, description, category_id, price, image, available)
+         VALUES (?, 'Test item', (SELECT category_id FROM menu_categories WHERE name = 'Main Course'), ?, '', ?)`,
         [`${label} ${tag}`, price, available]
     );
     created.menu.push(result.insertId);
