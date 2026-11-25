@@ -18,6 +18,3 @@ npm-debug.log*
 # Editor files
 .vscode/
 .idea/
-
-# Uploaded menu photos
-backend/uploads/

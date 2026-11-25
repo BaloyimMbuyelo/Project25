@@ -80,7 +80,7 @@ function priceLines(requestLines, menuItems) {
     const priced = requestLines.map((line) => {
         const item = byId.get(line.menu_item_id);
 
-        if (!item || !item.available || item.is_active === 0) {
+        if (!item || !item.available) {
             throw conflict(`${item ? item.name : 'An item in your order'} is no longer available.`, {
                 menu_item_id: line.menu_item_id
             });

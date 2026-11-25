@@ -1,12 +1,12 @@
-const { z, optionalText, quantity2dp, nonNegative2dp, msg } = require('./common');
+const { z, optionalText, quantity2dp, nonNegative2dp } = require('./common');
 
 const itemFields = {
-    item_name: z.string(msg('Enter the item name.'))
+    item_name: z.string({ required_error: 'Enter the item name.' })
         .trim()
         .min(1, 'Enter the item name.')
         .max(80, 'Item name must be 80 characters or fewer.'),
     category: optionalText(50, 'Category'),
-    unit: z.string(msg('Choose a unit.'))
+    unit: z.string({ required_error: 'Choose a unit.' })
         .trim()
         .min(1, 'Choose a unit.')
         .max(10, 'Unit must be 10 characters or fewer (e.g. kg, l, ea, box, jar).'),
@@ -21,12 +21,15 @@ const createItem = z.object({
 const updateItem = z.object(itemFields);
 
 const setStatus = z.object({
-    is_active: z.boolean(msg('is_active must be true or false.'))
+    is_active: z.boolean({
+        required_error: 'is_active must be true or false.',
+        invalid_type_error: 'is_active must be true or false.'
+    })
 });
 
 const recordMovement = z.object({
     movement_type: z.enum(['STOCK_IN', 'STOCK_OUT', 'WASTAGE', 'ADJUSTMENT_IN', 'ADJUSTMENT_OUT'], {
-        error: 'Choose a movement type.'
+        errorMap: () => ({ message: 'Choose a movement type.' })
     }),
     quantity: quantity2dp('Quantity'),
     reason: optionalText(255, 'Reason')

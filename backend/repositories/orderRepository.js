@@ -117,7 +117,7 @@ async function statusCounts(ex, date) {
 
 async function lockMenuItems(ex, ids) {
     const [rows] = await ex.query(
-        'SELECT id, name, price, available, is_active FROM menu_items WHERE id IN (?) FOR UPDATE',
+        'SELECT id, name, price, available FROM menu_items WHERE id IN (?) FOR UPDATE',
         [ids]
     );
     return rows;

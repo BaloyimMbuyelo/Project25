@@ -1,14 +1,14 @@
-const { z, phone, msg } = require('./common');
+const { z, phone } = require('./common');
 
 const required = 'Email/username and password are required.';
 
 const login = z.object({
-    email: z.string(msg(required))
+    email: z.string({ required_error: required, invalid_type_error: required })
         .trim()
         .toLowerCase()
         .min(1, required)
         .max(150, required),
-    password: z.string(msg(required))
+    password: z.string({ required_error: required, invalid_type_error: required })
         .min(1, required)
         .max(200, required)
 });
@@ -16,7 +16,7 @@ const login = z.object({
 // Letters (any language), spaces, hyphens and apostrophes (P3)
 const NAME = /^[\p{L}][\p{L} '\-]*$/u;
 
-const namePart = (label) => z.string(msg(`Enter your ${label}.`))
+const namePart = (label) => z.string({ invalid_type_error: `Enter your ${label}.` })
     .trim()
     .min(2, `${label[0].toUpperCase()}${label.slice(1)} must be 2–50 characters.`)
     .max(50, `${label[0].toUpperCase()}${label.slice(1)} must be 2–50 characters.`)
@@ -30,13 +30,13 @@ const register = z.object({
     full_name: z.string().trim().min(2, 'Enter your full name.').max(150, 'Name is too long.')
         .regex(NAME, 'Name can only contain letters, spaces, hyphens and apostrophes.')
         .optional(),
-    email: z.string(msg('Enter your email address.'))
+    email: z.string({ required_error: 'Enter your email address.' })
         .trim()
         .toLowerCase()
         .max(120, 'Email must be 120 characters or fewer.')
         .email('Enter a valid email address.'),
     phone,
-    password: z.string(msg('Enter a password.')),
+    password: z.string({ required_error: 'Enter a password.' }),
     confirm_password: z.string().optional()
 }).superRefine((value, ctx) => {
     if (!value.full_name && !(value.first_name && value.last_name)) {
@@ -52,8 +52,8 @@ const register = z.object({
 }));
 
 const changePassword = z.object({
-    current_password: z.string(msg('Enter your current password.')).min(1, 'Enter your current password.'),
-    new_password: z.string(msg('Enter a new password.')),
+    current_password: z.string({ required_error: 'Enter your current password.' }).min(1, 'Enter your current password.'),
+    new_password: z.string({ required_error: 'Enter a new password.' }),
     confirm_password: z.string().optional()
 }).refine(
     (value) => value.confirm_password === undefined || value.confirm_password === value.new_password,

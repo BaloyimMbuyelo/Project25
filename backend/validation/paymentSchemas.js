@@ -1,13 +1,13 @@
-const { z, isoDate, optionalText, positiveId, msg } = require('./common');
+const { z, isoDate, optionalText, positiveId } = require('./common');
 
 const money = (label) =>
-    z.number(msg(`${label} must be a number.`))
+    z.number({ invalid_type_error: `${label} must be a number.` })
         .positive(`${label} must be greater than zero.`)
         .max(99999999.99, `${label} is too large.`)
         .refine((v) => Math.abs(Math.round(v * 100) - v * 100) < 1e-6, `${label} can have at most 2 decimals.`);
 
 const orderRef = z.union([z.string(), z.number()], {
-    error: 'Enter the order number.'
+    errorMap: () => ({ message: 'Enter the order number.' })
 }).transform((v) => String(v).trim());
 
 // Note: there is deliberately no "amount" field - the server uses the
@@ -20,7 +20,7 @@ const recordPayment = z.object({
 });
 
 const voidPayment = z.object({
-    reason: z.string(msg('Enter a reason for voiding this payment.'))
+    reason: z.string({ required_error: 'Enter a reason for voiding this payment.' })
         .trim()
         .min(3, 'Enter a reason for voiding this payment.')
         .max(255, 'Reason must be 255 characters or fewer.')

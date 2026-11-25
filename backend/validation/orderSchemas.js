@@ -1,9 +1,12 @@
 const settings = require('../config/settings');
-const { z, isoDate, optionalText, phone, positiveId, msg } = require('./common');
+const { z, isoDate, optionalText, phone, positiveId } = require('./common');
 
 const line = z.object({
     menu_item_id: positiveId('menu item'),
-    quantity: z.number(msg('Quantity must be greater than zero.'))
+    quantity: z.number({
+        required_error: 'Quantity must be greater than zero.',
+        invalid_type_error: 'Quantity must be greater than zero.'
+    })
         .int('Quantity must be a whole number.')
         .min(1, 'Quantity must be greater than zero.')
         .max(settings.ORDER_MAX_QTY, `Quantity must be ${settings.ORDER_MAX_QTY} or fewer per item.`),
@@ -11,12 +14,12 @@ const line = z.object({
 });
 
 const placeOrder = z.object({
-    lines: z.array(line, msg('Your order is empty.'))
+    lines: z.array(line, { required_error: 'Your order is empty.', invalid_type_error: 'Your order is empty.' })
         .min(1, 'Your order is empty.')
         .max(settings.ORDER_MAX_LINES, `An order can have at most ${settings.ORDER_MAX_LINES} lines.`),
     // Dine-in and Collection only - delivery is out of scope (Q4)
     order_type: z.enum(['DINE_IN', 'COLLECTION'], {
-        error: 'Choose Dine-in or Collection.'
+        errorMap: () => ({ message: 'Choose Dine-in or Collection.' })
     }),
     table_id: positiveId('table').nullable().optional(),
     customer_id: positiveId('customer').optional(),
@@ -29,7 +32,7 @@ const statusValues = ['PENDING', 'CONFIRMED', 'PREPARING', 'READY', 'COMPLETED',
 
 const updateStatus = z.object({
     status: z.enum(['CONFIRMED', 'PREPARING', 'READY', 'COMPLETED'], {
-        error: 'Choose the next status for this order.'
+        errorMap: () => ({ message: 'Choose the next status for this order.' })
     })
 });
 
