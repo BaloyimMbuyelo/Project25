@@ -1,0 +1,57 @@
+.book-row {
+  display: grid;
+  grid-template-columns: 1.4fr 1fr;
+  gap: 12px;
+}
+
+.book-row > div {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.book-slots {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(72px, 1fr));
+  gap: 8px;
+}
+
+.book-slots button {
+  border: 1px solid #e4d6ca;
+  background: white;
+  border-radius: 6px;
+  padding: 9px 0;
+  font: inherit;
+  font-size: 14px;
+  cursor: pointer;
+  min-height: 40px;
+}
+
+.book-slots button:hover:not(:disabled) {
+  border-color: #b87845;
+}
+
+.book-slots button.selected {
+  background: #b87845;
+  border-color: #b87845;
+  color: white;
+  font-weight: 600;
+}
+
+.book-slots button:disabled {
+  color: #bbb;
+  background: #f6f6f4;
+  text-decoration: line-through;
+  cursor: not-allowed;
+}
+
+.book-done {
+  background: #e8f5ec;
+  border: 1px solid #9fd0ad;
+  color: #24663a;
+  border-radius: 8px;
+  padding: 10px 12px;
+  font-size: 14px;
+  line-height: 1.5;
+}

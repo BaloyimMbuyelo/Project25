@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { menuApi, menuImageSrc } from '../../api/modules';
+import CustomerAccountBar from '../../components/CustomerAccountBar';
 import './CustomerMenu.css';
 
 const CART_KEY = 'ubms_customer_cart';
@@ -82,6 +83,8 @@ function CustomerMenu() {
   );
 
   return (
+    <>
+    <CustomerAccountBar />
     <div className="customer-menu">
       <header className="customer-menu-header">
         <div>
@@ -162,6 +165,7 @@ function CustomerMenu() {
         </section>
       )}
     </div>
+    </>
   );
 }
 

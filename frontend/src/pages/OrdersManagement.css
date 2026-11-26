@@ -170,7 +170,7 @@
 
 .orders-item-row {
   display: grid;
-  grid-template-columns: 2fr 1fr 1fr auto;
+  grid-template-columns: 2fr 0.7fr 1.5fr 1fr auto;
   gap: 13px;
   align-items: end;
   padding: 13px 0;
@@ -367,4 +367,83 @@
   .orders-detail-panel {
     padding: 15px;
   }
+}
+
+/* ---------- Connected to the API (status, messages, kitchen actions) ---------- */
+
+.orders-status.confirmed {
+  background: #f1eafd;
+  color: #6a45b1;
+}
+
+.orders-row-actions {
+  flex-wrap: wrap;
+}
+
+.orders-row-actions .orders-advance-btn {
+  background: #b87845;
+  color: white;
+  border-radius: 5px;
+  padding: 5px 9px;
+  font-weight: 600;
+}
+
+.orders-row-actions .orders-advance-btn:hover {
+  background: #a3683a;
+  text-decoration: none;
+}
+
+.orders-row-actions button:disabled {
+  opacity: 0.5;
+  cursor: wait;
+}
+
+.orders-notice,
+.orders-error {
+  padding: 11px 14px;
+  border-radius: 7px;
+  font-size: 14px;
+  margin-bottom: 14px;
+}
+
+.orders-notice {
+  background: #e8f5ec;
+  border: 1px solid #9fd0ad;
+  color: #24663a;
+}
+
+.orders-error {
+  background: #fdecec;
+  border: 1px solid #e7a3a3;
+  color: #9b2c2c;
+}
+
+.orders-error button {
+  margin-left: 8px;
+  background: none;
+  border: none;
+  color: #8a5a2f;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.orders-field-error {
+  color: #b63e3e;
+  font-size: 12px;
+}
+
+.orders-hint {
+  color: #777;
+  font-size: 12px;
+  margin-top: -6px;
+}
+
+.orders-form [aria-invalid="true"] {
+  border-color: #d35b5b;
+}
+
+.orders-awaiting {
+  font-size: 11px;
+  color: #247d69;
+  font-style: italic;
 }

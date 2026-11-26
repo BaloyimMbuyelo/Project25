@@ -71,12 +71,20 @@ function ReservationsManagement() {
   const [selected, setSelected] = useState(null);
   const [busyRef, setBusyRef] = useState(null);
 
+  // Online requests still waiting for a table, on any upcoming day, so staff
+  // don't have to guess which date to open
+  const [requests, setRequests] = useState([]);
+
   const loadReservations = useCallback(async () => {
     setLoading(true);
     setLoadError('');
     try {
-      const response = await reservationsApi.list({ date, status: statusFilter || undefined });
+      const [response, pending] = await Promise.all([
+        reservationsApi.list({ date, status: statusFilter || undefined }),
+        reservationsApi.list({ status: 'PENDING' }),
+      ]);
       setData(response.data);
+      setRequests(pending.data.reservations || []);
     } catch (error) {
       setLoadError(error.message);
     } finally {
@@ -285,6 +293,35 @@ function ReservationsManagement() {
           <small>Guests at tables</small>
         </div>
       </section>
+
+      {requests.length > 0 && (
+        <section className="reservations-requests" aria-labelledby="requests-heading">
+          <h3 id="requests-heading">
+            {requests.length} booking request{requests.length === 1 ? '' : 's'} waiting for a table
+          </h3>
+          <ul>
+            {requests.map((r) => (
+              <li key={r.reservation_ref}>
+                <span>
+                  <strong>{formatDate(r.reservation_date)} · {r.start_time}</strong>
+                  {' '}– {r.customer_name || r.guest_name} · {r.party_size} guest{r.party_size === 1 ? '' : 's'} · {r.reservation_ref}
+                  {r.special_requests ? ` · “${r.special_requests}”` : ''}
+                </span>
+                <span className="reservations-requests-actions">
+                  <button type="button" onClick={() => { setDate(r.reservation_date); setSearch(r.reservation_ref); }}>
+                    Show day
+                  </button>
+                  {canEdit && (
+                    <button type="button" className="primary" onClick={() => { setDate(r.reservation_date); openEdit(r); }}>
+                      Allocate table
+                    </button>
+                  )}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
 
       {form && (
         <form className="reservations-form" onSubmit={handleSubmit} noValidate>

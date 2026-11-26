@@ -44,6 +44,8 @@ export const ordersApi = {
   list: (query) => apiRequest('/api/v1/orders', { query }),
   get: (ref) => apiRequest(`/api/v1/orders/${encodeURIComponent(ref)}`),
   place: (body) => apiRequest('/api/v1/orders', { method: 'POST', body }),
+  // Change the items / instructions before the kitchen starts (FR-19)
+  amend: (ref, body) => apiRequest(`/api/v1/orders/${encodeURIComponent(ref)}`, { method: 'PATCH', body }),
   setStatus: (ref, status) =>
     apiRequest(`/api/v1/orders/${encodeURIComponent(ref)}/status`, { method: 'PATCH', body: { status } }),
   cancel: (ref, reason) =>

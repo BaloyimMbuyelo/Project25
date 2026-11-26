@@ -1,0 +1,38 @@
+/* Customer login reuses the staff login card (StaffLogin.css) */
+
+.customer-login-page {
+  min-height: calc(100vh - 48px);
+}
+
+.customer-login-names {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0 12px;
+}
+
+.customer-login-names > div {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+
+.customer-login-hint {
+  color: #777;
+  font-size: 12px;
+}
+
+.customer-login-notice {
+  background: #e8f5ec;
+  border: 1px solid #9fd0ad;
+  color: #24663a;
+  border-radius: 8px;
+  padding: 10px 12px;
+  font-size: 14px;
+}
+
+@media (max-width: 420px) {
+  .customer-login-names {
+    grid-template-columns: 1fr;
+  }
+}
