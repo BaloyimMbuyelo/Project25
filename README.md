@@ -8,7 +8,7 @@ A restaurant management system for Ubuntu Bistro, built as our Year 3 project. C
 | Backend API | Node.js 22 and Express 5 | [backend/](backend/) |
 | Database | MySQL 8.0 | [database/](database/) |
 
-The full list of API endpoints, with request and response examples, is in [docs/API.md](docs/API.md).
+The full list of API endpoints, with request and response examples, is in [docs/API.md](docs/API.md). To put the system on an Ubuntu server with Nginx and HTTPS, see [deploy/README.md](deploy/README.md).
 
 ---
 
