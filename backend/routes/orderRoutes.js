@@ -19,6 +19,7 @@ router.use(authenticateToken);
 router.get('/', authorizeRoles(...ALL), validate({ query: schemas.listQuery }), controller.list);
 router.get('/:ref', authorizeRoles(...ALL), validate({ params: schemas.refParam }), controller.getOne);
 router.post('/', authorizeRoles(...PLACERS), validate({ body: schemas.placeOrder }), controller.create);
+router.patch('/:ref', authorizeRoles(...PLACERS), validate({ params: schemas.refParam, body: schemas.amendOrder }), controller.amend);
 router.patch('/:ref/status', authorizeRoles(...STATUS_CHANGERS), validate({ params: schemas.refParam, body: schemas.updateStatus }), controller.updateStatus);
 router.post('/:ref/cancel', authorizeRoles(...CANCELLERS), validate({ params: schemas.refParam, body: schemas.cancelOrder }), controller.cancel);
 

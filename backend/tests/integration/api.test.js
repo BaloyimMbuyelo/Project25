@@ -233,6 +233,43 @@ maybe('UBMS API - modules 4.0 to 6.0', () => {
             expect(other.status).toBe(403);
         });
 
+        test('the same customer cannot book the same sitting twice', async () => {
+            // Overlaps the 19:30 request (19:30-21:30)
+            const res = await api('customer').post('/api/v1/reservations', {
+                reservation_date: TOMORROW, start_time: '20:00', party_size: 2
+            });
+            expect(res.status).toBe(409);
+            expect(res.body.error.message).toBe(`You already have booking ${customerRef} at 19:30 on ${TOMORROW}.`);
+            expect(res.body.error.details.existing_ref).toBe(customerRef);
+        });
+
+        test('the same guest phone cannot be booked twice for one sitting', async () => {
+            // Naledi P (071 234 5678) already holds table A at 19:00
+            const res = await api('waiter').post('/api/v1/reservations', {
+                reservation_date: TOMORROW, start_time: '19:30', party_size: 2,
+                guest_name: 'Naledi P', guest_phone: '0712345678'
+            });
+            expect(res.status).toBe(409);
+            expect(res.body.error.message).toBe(`Naledi P already has booking ${confirmedRef} at 19:00 on ${TOMORROW}.`);
+        });
+
+        test('pending requests use up capacity: no more requests than tables that fit', async () => {
+            // Only one table seats 15 (the house tables seat at most 8)
+            await createTable('BIG', 20);
+            const day = addDays(localDate(), 5);
+            const ask = (who) => api(who).post('/api/v1/reservations', { reservation_date: day, start_time: '18:00', party_size: 15 });
+
+            expect((await ask('customer')).status).toBe(201); // Pending, holds the big table
+
+            const second = await ask('customer2');
+            expect(second.status).toBe(409);
+            expect(second.body.error.message).toBe('No table available at that time.');
+
+            const slots = (await api('customer2').get(`/api/v1/reservations/availability?date=${day}&party_size=15`)).body.data.slots;
+            expect(slots.find((s) => s.start_time === '18:00').available).toBe(false);
+            expect(slots.find((s) => s.start_time === '20:00').available).toBe(true); // after the 2-hour sitting
+        });
+
         test('allocating a table confirms a pending request', async () => {
             const res = await api('waiter').patch(`/api/v1/reservations/${customerRef}`, { table_id: tables.B });
             expect(res.status).toBe(200);
@@ -267,7 +304,8 @@ maybe('UBMS API - modules 4.0 to 6.0', () => {
 
             const rebook = await api('waiter').post('/api/v1/reservations', {
                 reservation_date: TOMORROW, start_time: '19:30', party_size: 4,
-                table_id: tables.B, guest_name: 'New Guest', guest_phone: '0831234567'
+                // own number: one active booking per phone per sitting
+                table_id: tables.B, guest_name: 'New Guest', guest_phone: '0839876543'
             });
             expect(rebook.status).toBe(201);
         });

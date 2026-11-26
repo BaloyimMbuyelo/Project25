@@ -23,4 +23,9 @@ async function cancel(req, res) {
     res.json({ data, message: `Order ${data.order_ref} cancelled` });
 }
 
-module.exports = { create, list, getOne, updateStatus, cancel };
+async function amend(req, res) {
+    const data = await service.amendOrder(req.user, req.valid.params.ref, req.valid.body);
+    res.json({ data, message: `Order ${data.order_ref} updated` });
+}
+
+module.exports = { create, list, getOne, updateStatus, cancel, amend };

@@ -374,6 +374,62 @@ async function cancelOrder(user, ref, { reason }) {
     return loadDetail(db, orderId);
 }
 
+// Controlled amendment (Analysis FR-19, scenario SC-02): change the items or
+// instructions before the kitchen starts. Customers: their own order while
+// Pending. Waiter / Manager: Pending or Confirmed. Prices are re-captured and
+// the total recalculated on the server (BR-01, BR-02); the change is audited.
+const AMENDABLE_BY_STAFF = ['PENDING', 'CONFIRMED'];
+
+function assertCanAmend(user, order) {
+    if (user.role === ROLES.CUSTOMER) {
+        if (order.customer_id !== user.user_id || order.order_status !== 'PENDING') {
+            throw forbidden('You can only change your own order while it is Pending.');
+        }
+    } else if (!AMENDABLE_BY_STAFF.includes(order.order_status)) {
+        throw conflict(`A ${STATUS_LABELS[order.order_status]} order can no longer be changed. Cancel it and place a new order instead.`);
+    }
+}
+
+async function amendOrder(user, ref, input) {
+    const orderId = requireOrderId(ref);
+
+    await withTransaction(async (conn) => {
+        const order = await repo.findById(conn, orderId, { forUpdate: true });
+        if (!order) throw notFound('Order not found.');
+
+        assertCanAmend(user, order);
+
+        const before = await repo.lines(conn, orderId);
+        const ids = [...new Set(input.lines.map((line) => line.menu_item_id))];
+        const menuItems = await repo.lockMenuItems(conn, ids);
+        const { lines, totalCents } = priceLines(input.lines, menuItems);
+
+        const instructions = input.special_instructions === undefined
+            ? order.special_instructions
+            : input.special_instructions || null;
+
+        await repo.replaceLines(conn, orderId, lines);
+        await repo.updateAmended(conn, orderId, { totalAmount: fromCents(totalCents), specialInstructions: instructions });
+
+        await logAudit(conn, {
+            userId: user.user_id,
+            action: 'ORDER_AMENDED',
+            entity: 'orders',
+            recordId: orderId,
+            details: {
+                order_ref: orderRef(orderId),
+                status: order.order_status,
+                from_total: Number(order.total_amount),
+                to_total: fromCents(totalCents),
+                from_lines: before.map((l) => `${l.quantity} x ${l.name}`),
+                to_lines: lines.map((l) => `${l.quantity} x ${l.name}`)
+            }
+        });
+    });
+
+    return loadDetail(db, orderId);
+}
+
 module.exports = {
     STATUS_LABELS,
     NEXT_STATUS,
@@ -387,5 +443,7 @@ module.exports = {
     listOrders,
     getOrder,
     updateStatus,
-    cancelOrder
+    cancelOrder,
+    assertCanAmend,
+    amendOrder
 };

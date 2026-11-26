@@ -508,12 +508,52 @@ maybe('UBMS API - access control, orders, users and reports', () => {
             expect(pay.status).toBe(409);
         });
 
+        test('controlled amendment before the kitchen starts (Analysis FR-19, SC-02)', async () => {
+            const placed = await as('customer').post('/api/v1/orders', {
+                order_type: 'COLLECTION',
+                lines: [{ menu_item_id: menu['Bunny Chow'], quantity: 1 }]
+            });
+            created.orders.push(placed.body.data.order_id);
+            const ref = placed.body.data.order_ref;
+            const url = `/api/v1/orders/${ref}`;
+            const newLines = { lines: [{ menu_item_id: menu['Bunny Chow'], quantity: 2, unit_price: 1, notes: 'Extra chilli' }, { menu_item_id: menu['Malva Pudding'], quantity: 1 }] };
+
+            // Owner amends while Pending: lines replaced, server prices, total recalculated
+            const own = await as('customer').patch(url, { ...newLines, special_instructions: 'Collect at 19:00' });
+            expect(own.status).toBe(200);
+            expect(own.body.data.total).toBe(245);
+            expect(own.body.data.lines.map((l) => [l.quantity, l.unit_price, l.notes])).toEqual([[2, 95, 'Extra chilli'], [1, 55, null]]);
+            expect(own.body.data.special_instructions).toBe('Collect at 19:00');
+
+            // Not someone else's order, not with unavailable items, not empty, not by kitchen
+            expect((await as('customer2').patch(url, newLines)).status).toBe(403);
+            expect((await as('customer').patch(url, { lines: [{ menu_item_id: menu.Bobotie, quantity: 1 }] })).status).toBe(409);
+            expect((await as('customer').patch(url, { lines: [] })).status).toBe(400);
+            expect((await as('kitchen').patch(url, newLines)).status).toBe(403);
+
+            // Once confirmed only staff may change it; once preparing nobody may
+            await as('waiter').patch(`${url}/status`, { status: 'CONFIRMED' });
+            expect((await as('customer').patch(url, newLines)).status).toBe(403);
+            const byWaiter = await as('waiter').patch(url, { lines: [{ menu_item_id: menu['Malva Pudding'], quantity: 3 }] });
+            expect(byWaiter.status).toBe(200);
+            expect(byWaiter.body.data.total).toBe(165);
+            await as('kitchen').patch(`${url}/status`, { status: 'PREPARING' });
+            expect((await as('waiter').patch(url, newLines)).status).toBe(409);
+
+            const [[audit]] = await db.query(
+                "SELECT description FROM audit_logs WHERE action = 'ORDER_AMENDED' AND JSON_EXTRACT(description, '$.record_id') = ? ORDER BY log_id LIMIT 1",
+                [placed.body.data.order_id]
+            );
+            const details = typeof audit.description === 'string' ? JSON.parse(audit.description) : audit.description;
+            expect(details).toEqual(expect.objectContaining({ from_total: 95, to_total: 245 }));
+        });
+
         test('order events are audited', async () => {
             const [rows] = await db.query(
                 "SELECT DISTINCT action FROM audit_logs WHERE user_id IN (?) AND action LIKE 'ORDER_%'",
                 [[users.customer, users.waiter, users.kitchen, users.manager]]
             );
-            expect(rows.map((r) => r.action).sort()).toEqual(['ORDER_CANCELLED', 'ORDER_PLACED', 'ORDER_STATUS']);
+            expect(rows.map((r) => r.action).sort()).toEqual(['ORDER_AMENDED', 'ORDER_CANCELLED', 'ORDER_PLACED', 'ORDER_STATUS']);
         });
     });
 

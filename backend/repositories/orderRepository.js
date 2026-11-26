@@ -184,5 +184,26 @@ module.exports = {
     findCustomerUser,
     insertOrder,
     insertLine,
-    setStatus
+    setStatus,
+    replaceLines,
+    updateAmended
 };
+
+// Order amendment (Analysis FR-19, SC-02): the old lines are replaced as a
+// whole inside the caller's transaction; prices are re-captured at that time.
+async function replaceLines(ex, orderId, newLines) {
+    await ex.query('DELETE FROM order_items WHERE order_id = ?', [orderId]);
+    for (const line of newLines) {
+        await insertLine(ex, orderId, line);
+    }
+}
+
+async function updateAmended(ex, orderId, { totalAmount, specialInstructions }) {
+    await ex.query(
+        `UPDATE orders
+            SET total_amount = ?,
+                special_instructions = ?
+          WHERE order_id = ?`,
+        [totalAmount, specialInstructions, orderId]
+    );
+}
