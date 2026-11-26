@@ -25,6 +25,13 @@ const placeOrder = z.object({
     special_instructions: optionalText(255, 'Special instructions')
 });
 
+// Order amendment (Analysis FR-19): the full new set of lines, and optionally
+// new instructions. Type, table and customer stay as placed.
+const amendOrder = z.object({
+    lines: placeOrder.shape.lines,
+    special_instructions: optionalText(255, 'Special instructions')
+});
+
 const statusValues = ['PENDING', 'CONFIRMED', 'PREPARING', 'READY', 'COMPLETED', 'CANCELLED'];
 
 const updateStatus = z.object({
@@ -54,4 +61,4 @@ const refParam = z.object({
     ref: z.string().trim().min(1).max(20)
 });
 
-module.exports = { placeOrder, updateStatus, cancelOrder, listQuery, refParam };
+module.exports = { placeOrder, amendOrder, updateStatus, cancelOrder, listQuery, refParam };

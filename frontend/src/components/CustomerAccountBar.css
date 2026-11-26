@@ -1,0 +1,66 @@
+.customer-account-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  padding: 12px 24px;
+  background: #252523;
+  color: #f4efe9;
+}
+
+.customer-account-brand {
+  color: #e6b17e;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  text-decoration: none;
+}
+
+.customer-account-links {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px 18px;
+  font-size: 14px;
+}
+
+.customer-account-links a,
+.customer-account-links button {
+  color: #f4efe9;
+  text-decoration: none;
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+  cursor: pointer;
+}
+
+.customer-account-links a:hover,
+.customer-account-links button:hover {
+  color: #e6b17e;
+  text-decoration: underline;
+}
+
+.customer-account-name {
+  color: #c9c4bd;
+}
+
+.customer-account-links .customer-account-login {
+  color: #252523;
+  background: #e6b17e;
+  border-radius: 6px;
+  padding: 6px 12px;
+  font-weight: 600;
+}
+
+.customer-account-links .customer-account-login:hover {
+  color: #252523;
+  text-decoration: none;
+  background: #f0c493;
+}
+
+@media (max-width: 480px) {
+  .customer-account-bar {
+    padding: 10px 16px;
+  }
+}

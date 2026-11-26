@@ -73,6 +73,40 @@ describe('reservation overlap (BR-04)', () => {
     });
 });
 
+describe('capacity with pending requests (capacityFree, BR-04)', () => {
+    const t = (id, capacity, status = 'IN_SERVICE') => ({ table_id: id, table_number: `T${id}`, capacity, status });
+    const house = [t(1, 2), t(2, 4), t(3, 4), t(4, 8), t(5, 6, 'OUT_OF_SERVICE')];
+    const req = (id, party, start = '19:00', end = '21:00') => ({ reservation_id: id, table_id: null, party_size: party, start_time: start, end_time: end });
+    const free = (bookings, party, excludeId) =>
+        reservation.capacityFree(house, bookings, '19:00', '21:00', party, excludeId).map((x) => x.table_id);
+
+    test('no bookings: every in-service table that fits', () => {
+        expect(free([], 4)).toEqual([2, 3, 4]);
+    });
+
+    test('each pending request holds the smallest table that fits it', () => {
+        expect(free([req(10, 3)], 4)).toEqual([3, 4]); // the 3 takes a 4-seater
+        expect(free([req(10, 3), req(11, 4)], 4)).toEqual([4]);
+        expect(free([req(10, 3), req(11, 4), req(12, 5)], 1)).toEqual([1]); // only the 2-seater is left
+    });
+
+    test('larger parties are placed first, so small tables are not wasted', () => {
+        expect(free([req(10, 2), req(11, 8)], 4)).toEqual([2, 3]);
+    });
+
+    test('allocated bookings hold their own table; out-of-service tables never count', () => {
+        const allocated = { reservation_id: 20, table_id: 4, party_size: 6, start_time: '18:00', end_time: '20:00' };
+        expect(free([allocated], 6)).toEqual([]);
+        expect(free([allocated], 4)).toEqual([2, 3]);
+    });
+
+    test('requests at other times and the booking being edited are ignored', () => {
+        expect(free([req(10, 8, '17:00', '19:00'), req(11, 8, '21:00', '23:00')], 8)).toEqual([4]);
+        expect(free([req(10, 8)], 8, 10)).toEqual([4]);
+        expect(free([req(10, 8)], 8)).toEqual([]);
+    });
+});
+
 describe('reservation state model (Figure 8)', () => {
     const booking = { reservation_date: '2026-11-18', start_time: '18:00' };
 

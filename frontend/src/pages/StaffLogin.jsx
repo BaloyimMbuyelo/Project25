@@ -20,6 +20,8 @@ function StaffLogin() {
     location.state?.expired ? 'Your session has expired. Please log in again.' : ''
   );
   const [submitting, setSubmitting] = useState(false);
+  // A customer account used on this page - point them to the customer login
+  const [wrongPortal, setWrongPortal] = useState(false);
 
   // Password change step
   const [mustChange, setMustChange] = useState(Boolean(current?.must_change_pw));
@@ -64,6 +66,7 @@ function StaffLogin() {
       // Server messages are already user-friendly (generic 401, 429 lockout,
       // inactive account, wrong portal).
       setError(err.message);
+      setWrongPortal(err.code === 'WRONG_PORTAL');
     } finally {
       setSubmitting(false);
     }
@@ -185,7 +188,8 @@ function StaffLogin() {
 
         {error && (
           <div className="staff-login-error" role="alert">
-            ⚠ {error}
+            ⚠ {wrongPortal ? 'This is a customer account. ' : ''}{error}
+            {wrongPortal && <> <Link to="/login">Go to the customer login</Link></>}
           </div>
         )}
 
@@ -218,7 +222,7 @@ function StaffLogin() {
         </button>
 
         <p className="staff-login-footer">
-          Customer? <Link to="/menu">Go to the customer menu</Link>
+          Customer? <Link to="/login">Log in here</Link> or <Link to="/menu">see the menu</Link>
         </p>
       </form>
     </main>

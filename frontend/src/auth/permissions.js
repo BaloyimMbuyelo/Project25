@@ -20,6 +20,8 @@ export const STAFF_PAGES = [
   { name: 'Inventory', path: '/staff/inventory', icon: '▥', roles: [ROLES.MANAGER, ROLES.ADMIN, ROLES.KITCHEN] },
   { name: 'Payments', path: '/staff/payments', icon: 'R', roles: [ROLES.CASHIER, ROLES.MANAGER, ROLES.ADMIN] },
   { name: 'Reports', path: '/staff/reports', icon: '▧', roles: [ROLES.MANAGER, ROLES.ADMIN] },
+  { name: 'Users & Roles', path: '/staff/users', icon: '☺', roles: [ROLES.ADMIN] },
+  { name: 'Audit Log', path: '/staff/audit', icon: '≡', roles: [ROLES.ADMIN] },
 ];
 
 export const rolesFor = (path) => STAFF_PAGES.find((page) => page.path === path)?.roles || ALL_STAFF;

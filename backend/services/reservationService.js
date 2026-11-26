@@ -108,6 +108,54 @@ function freeTablesForSlot(tables, bookings, startTime, endTime, excludeId = 0) 
     ));
 }
 
+// Tables still free for a new request without a table (FR-13, BR-04).
+// Allocated bookings hold their own table. Each overlapping Pending request
+// (no table yet) holds the smallest table that fits it, largest party
+// first, so requests can't be accepted beyond what the tables can seat.
+function capacityFree(tables, bookings, startTime, endTime, partySize, excludeId = 0) {
+    const overlapping = bookings.filter((b) =>
+        b.reservation_id !== excludeId && b.start_time < endTime && b.end_time > startTime);
+
+    const free = tables
+        .filter((t) => t.status === 'IN_SERVICE' && !overlapping.some((b) => b.table_id === t.table_id))
+        .sort((a, b) => a.capacity - b.capacity || String(a.table_number).localeCompare(String(b.table_number)));
+
+    const unallocated = overlapping
+        .filter((b) => !b.table_id)
+        .sort((a, b) => b.party_size - a.party_size);
+
+    for (const request of unallocated) {
+        const i = free.findIndex((t) => t.capacity >= request.party_size);
+        if (i >= 0) free.splice(i, 1);
+    }
+
+    return free.filter((t) => t.capacity >= partySize);
+}
+
+async function freeForRequest(ex, { date, startTime, endTime, partySize, excludeId = 0 }, { lock = false } = {}) {
+    const tables = await repo.listTables(ex, { forUpdate: lock });
+    const bookings = await repo.listActiveForDate(ex, date);
+    return capacityFree(tables, bookings, startTime, endTime, partySize, excludeId);
+}
+
+// One active booking per customer (or guest phone number) per sitting:
+// stops double taps and repeat requests creating duplicate bookings.
+async function assertNoDuplicate(ex, { date, startTime, endTime, customerId, guestPhone, excludeId = 0 }, whose = 'You') {
+    if (!customerId && !guestPhone) return;
+    const bookings = await repo.listActiveForDate(ex, date);
+    const same = bookings.find((b) =>
+        b.reservation_id !== excludeId &&
+        b.start_time < endTime && b.end_time > startTime &&
+        (customerId ? b.customer_id === customerId : b.guest_phone === guestPhone));
+
+    if (same) {
+        const verb = whose === 'You' ? 'You already have' : `${whose} already has`;
+        throw conflict(`${verb} booking ${same.reservation_ref} at ${same.start_time} on ${date}.`, {
+            existing_ref: same.reservation_ref
+        });
+    }
+}
+
 // ---------- Helpers ----------
 
 const isCustomer = (user) => user.role === ROLES.CUSTOMER;
@@ -137,7 +185,7 @@ async function suggestAlternatives(ex, { date, startTime, partySize, tableId = n
                 times.push({ table_id: tableId, table_number: table.table_number, start_time: candidate });
             }
         } else {
-            const free = await repo.findFreeTables(ex, { date, startTime: candidate, endTime: candidateEnd, partySize, excludeId });
+            const free = await freeForRequest(ex, { date, startTime: candidate, endTime: candidateEnd, partySize, excludeId });
             if (free.length > 0) times.push({ start_time: candidate });
         }
 
@@ -178,7 +226,8 @@ async function assertTableBookable(conn, { tableId, date, startTime, endTime, pa
 }
 
 async function assertSomeTableFree(conn, { date, startTime, endTime, partySize, excludeId = 0 }, now) {
-    const free = await repo.findFreeTables(conn, { date, startTime, endTime, partySize, excludeId });
+    // Counts Pending requests too, not only bookings that already have a table
+    const free = await freeForRequest(conn, { date, startTime, endTime, partySize, excludeId }, { lock: true });
 
     if (free.length === 0) {
         const alternatives = await suggestAlternatives(conn, { date, startTime, partySize, excludeId }, now);
@@ -239,13 +288,12 @@ async function getAvailability({ date, party_size: partySize }, now = new Date()
         );
     }
 
-    const tables = (await repo.listTables(db))
-        .filter((t) => t.status === 'IN_SERVICE' && t.capacity >= partySize);
+    const tables = await repo.listTables(db);
     const bookings = await repo.listActiveForDate(db, date);
 
     const slots = generateSlots().map((startTime) => {
         const inPast = date === today && timeToMinutes(startTime) <= minutesNow(now);
-        const free = inPast ? [] : freeTablesForSlot(tables, bookings, startTime, endTimeFor(startTime));
+        const free = inPast ? [] : capacityFree(tables, bookings, startTime, endTimeFor(startTime), partySize);
         return { start_time: startTime, available: free.length > 0 };
     });
 
@@ -319,6 +367,10 @@ async function createReservation(user, input, now = new Date()) {
             partySize: data.party_size
         };
 
+        await assertNoDuplicate(conn, {
+            ...slot, customerId: data.customer_id, guestPhone: data.customer_id ? null : data.guest_phone
+        }, isCustomer(user) ? 'You' : data.guest_name || 'This customer');
+
         if (data.table_id) {
             await assertTableBookable(conn, { ...slot, tableId: data.table_id }, now);
             data.status = 'CONFIRMED';
@@ -384,6 +436,12 @@ async function updateReservation(user, ref, changes, now = new Date()) {
             partySize: next.party_size,
             excludeId: current.reservation_id
         };
+
+        if (slotChanged) {
+            const phone = current.customer_id ? null : (changes.guest_phone ?? current.guest_phone);
+            await assertNoDuplicate(conn, { ...slot, customerId: current.customer_id, guestPhone: phone },
+                current.customer_name || current.guest_name || 'This customer');
+        }
 
         if (next.table_id) {
             await assertTableBookable(conn, { ...slot, tableId: next.table_id }, now);
@@ -469,6 +527,7 @@ module.exports = {
     validateSlot,
     assertTransition,
     freeTablesForSlot,
+    capacityFree,
     listReservations,
     getReservation,
     getAvailability,

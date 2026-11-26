@@ -1,10 +1,22 @@
 
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { menuApi, menuImageSrc } from '../../api/modules';
+import CustomerAccountBar from '../../components/CustomerAccountBar';
 import './CustomerMenu.css';
 
-const API_URL = 'http://localhost:5000/api/menu';
 const CART_KEY = 'ubms_customer_cart';
+
+// The menu API (docs/API.md) uses menu_item_id / category_name / image_path.
+// Map to the shape this page and the saved cart already use.
+const toCartShape = (item) => ({
+  id: item.menu_item_id,
+  name: item.name,
+  description: item.description,
+  category: item.category_name,
+  price: item.price,
+  image: item.image_path,
+});
 
 function CustomerMenu() {
   const [menuItems, setMenuItems] = useState([]);
@@ -24,27 +36,17 @@ function CustomerMenu() {
         setLoading(true);
         setError('');
 
-        const response = await fetch(API_URL);
-
-        if (!response.ok) {
-          throw new Error('Unable to retrieve the restaurant menu.');
-        }
-
-        const data = await response.json();
+        // Shared API client: uses the deployed API address (VITE_API_URL),
+        // not localhost, so the page also works on phones and the live site.
+        const { data } = await menuApi.items({ available_only: true });
 
         if (!Array.isArray(data)) {
           throw new Error('The menu response has an unexpected format.');
         }
 
-        setMenuItems(
-          data.filter((item) =>
-            item.available === true ||
-            item.available === 1 ||
-            item.available === '1'
-          )
-        );
+        setMenuItems(data.map(toCartShape));
       } catch (err) {
-        setError(err.message);
+        setError(err.message || 'Unable to retrieve the restaurant menu.');
       } finally {
         setLoading(false);
       }
@@ -81,6 +83,8 @@ function CustomerMenu() {
   );
 
   return (
+    <>
+    <CustomerAccountBar />
     <div className="customer-menu">
       <header className="customer-menu-header">
         <div>
@@ -119,7 +123,7 @@ function CustomerMenu() {
             <article className="customer-menu-card" key={item.id}>
               {item.image ? (
                 <img
-                  src={`http://localhost:5000${item.image}`}
+                  src={menuImageSrc(item.image)}
                   alt={item.name}
                   className="customer-menu-image"
                 />
@@ -161,6 +165,7 @@ function CustomerMenu() {
         </section>
       )}
     </div>
+    </>
   );
 }
 

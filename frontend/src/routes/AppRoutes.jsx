@@ -15,8 +15,14 @@ import ReservationsManagement from '../pages/ReservationsManagement';
 import PaymentsManagement from '../pages/PaymentsManagement';
 import ReportsManagement from '../pages/ReportsManagement';
 import StaffLogin from '../pages/StaffLogin';
+import UsersManagement from '../pages/UsersManagement';
+import AuditLog from '../pages/AuditLog';
 import Cart from '../pages/customer/Cart';
 import CustomerMenu from '../pages/customer/CustomerMenu';
+import CustomerLogin from '../pages/customer/CustomerLogin';
+import Checkout from '../pages/customer/Checkout';
+import MyOrders from '../pages/customer/MyOrders';
+import BookTable from '../pages/customer/BookTable';
 
 // Staff route guard and role matrix (System Design Table 10 / Table 30)
 import RequireStaff from '../auth/RequireStaff';
@@ -29,10 +35,10 @@ const staffPage = (path, element) => (
 function AppRoutes() {
   return (
     <Routes>
-      {/* Redirect to staff dashboard */}
+      {/* Visitors land on the customer menu; staff use /staff */}
       <Route
         path="/"
-        element={<Navigate to="/staff/dashboard" replace />}
+        element={<Navigate to="/menu" replace />}
       />
 
       {/* Customer menu route */}
@@ -40,6 +46,13 @@ function AppRoutes() {
 
       {/* Customer shopping cart */}
       <Route path="/cart" element={<Cart />} />
+
+      {/* Customer login / registration, checkout and order status */}
+      <Route path="/login" element={<CustomerLogin />} />
+      <Route path="/checkout" element={<Checkout />} />
+      <Route path="/my-orders" element={<MyOrders />} />
+      <Route path="/my-orders/:ref" element={<MyOrders />} />
+      <Route path="/book" element={<BookTable />} />
 
       {/* Staff login (public) */}
       <Route path="/staff/login" element={<StaffLogin />} />
@@ -75,6 +88,10 @@ function AppRoutes() {
 
         {/* Reports */}
         <Route path="reports" element={staffPage('reports', <ReportsManagement />)} />
+
+        {/* Administrator: users & roles, audit log */}
+        <Route path="users" element={staffPage('users', <UsersManagement />)} />
+        <Route path="audit" element={staffPage('audit', <AuditLog />)} />
       </Route>
 
       {/* Redirect unknown routes */}

@@ -135,7 +135,12 @@ The frontend calls the API at `http://localhost:5000` by default. If your API ru
 | Page | Address |
 |---|---|
 | Customer menu and cart | http://localhost:5173/menu |
+| Customer login / register | http://localhost:5173/login |
+| Book a table (customer) | http://localhost:5173/book |
+| Customer's orders and status | http://localhost:5173/my-orders |
 | Staff login | http://localhost:5173/staff/login |
+
+The live demo runs at https://70-153-143-58.sslip.io (same paths). How to reach that server and its database is in [docs/AZURE-VM.md](docs/AZURE-VM.md).
 
 Demo accounts (password = whatever you set `DEMO_PASSWORD` to):
 
@@ -143,12 +148,12 @@ Every staff role can use the Dashboard and Orders. Each role also gets:
 
 | Role | Email | Also can use |
 |---|---|---|
-| Administrator | admin@ubms.local | Everything, including users and the audit log |
+| Administrator | admin@ubms.local | Everything, including Users & Roles and the Audit Log |
 | Manager | manager@ubms.local | Menu, reservations, stock, payments, reports |
-| Waiter | waiter@ubms.local | Reservations |
-| Kitchen Staff | kitchen@ubms.local | Stock |
-| Cashier | cashier@ubms.local | Payments and receipts |
-| Customer | thabo.nkosi@example.com | Customer login (`/api/auth/login`), not the staff pages |
+| Waiter | waiter@ubms.local | Reservations; captures, confirms and edits orders |
+| Kitchen Staff | kitchen@ubms.local | Stock (view); Kitchen Queue on the Orders page |
+| Cashier | cashier@ubms.local | Payments and receipts (paying an order completes it) |
+| Customer | thabo.nkosi@example.com | Customer login at /login, not the staff pages: menu, checkout, my orders, book a table |
 
 **Login rules:**
 - **Lockout:** five wrong passwords lock an account for 15 minutes.

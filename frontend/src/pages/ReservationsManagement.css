@@ -474,3 +474,66 @@
   opacity: 0.6;
   cursor: wait;
 }
+
+/* Online booking requests waiting for a table (any upcoming day) */
+.reservations-requests {
+  background: #fff6e9;
+  border: 1px solid #f0dfc5;
+  border-radius: 10px;
+  padding: 16px 18px;
+  margin-bottom: 20px;
+}
+
+.reservations-requests h3 {
+  font-size: 15px;
+  color: #8a5a2f;
+  margin-bottom: 10px;
+}
+
+.reservations-requests ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.reservations-requests li {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  font-size: 14px;
+  padding-top: 8px;
+  border-top: 1px solid #f0dfc5;
+}
+
+.reservations-requests li:first-child {
+  border-top: 0;
+  padding-top: 0;
+}
+
+.reservations-requests-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.reservations-requests-actions button {
+  border: 1px solid #e4d6ca;
+  background: white;
+  color: #6b4a2e;
+  border-radius: 6px;
+  padding: 6px 12px;
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.reservations-requests-actions button.primary {
+  background: #b87845;
+  border-color: #b87845;
+  color: white;
+  font-weight: 600;
+}

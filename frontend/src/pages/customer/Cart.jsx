@@ -1,6 +1,8 @@
 
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { menuImageSrc } from '../../api/modules';
+import CustomerAccountBar from '../../components/CustomerAccountBar';
 import './Cart.css';
 
 const CART_KEY = 'ubms_customer_cart';
@@ -43,6 +45,8 @@ function Cart() {
   );
 
   return (
+    <>
+    <CustomerAccountBar />
     <div className="customer-cart">
       <header className="cart-header">
         <p className="eyebrow">UBUNTU BISTRO</p>
@@ -65,7 +69,7 @@ function Cart() {
               {cart.map((item) => (
                 <article className="cart-item" key={item.id}>
                   <img
-                    src={`http://localhost:5000${item.image}`}
+                    src={menuImageSrc(item.image)}
                     alt={item.name}
                   />
 
@@ -124,14 +128,10 @@ function Cart() {
                 <strong>R {subtotal.toFixed(2)}</strong>
               </div>
 
-              <button
-                type="button"
-                className="checkout-button"
-                disabled
-                title="Checkout will be enabled in the next module."
-              >
-                Checkout (Coming Soon)
-              </button>
+              {/* Checkout asks the customer to log in first if needed */}
+              <Link to="/checkout" className="checkout-button">
+                Checkout
+              </Link>
 
               <Link to="/menu" className="continue-shopping">
                 Continue Shopping
@@ -141,6 +141,7 @@ function Cart() {
         )}
       </main>
     </div>
+    </>
   );
 }
 

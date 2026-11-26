@@ -88,7 +88,7 @@ async function list(ex, { date, fromDate, status, search, customerId, limit = 20
 // Active bookings on one date, used to build availability in memory.
 async function listActiveForDate(ex, date) {
     const [rows] = await ex.query(
-        `SELECT reservation_id, reservation_ref, table_id,
+        `SELECT reservation_id, reservation_ref, table_id, party_size, customer_id, guest_phone,
                 TIME_FORMAT(start_time, '%H:%i') AS start_time,
                 TIME_FORMAT(end_time, '%H:%i') AS end_time
          FROM reservations
@@ -98,11 +98,13 @@ async function listActiveForDate(ex, date) {
     return rows;
 }
 
-async function listTables(ex) {
+// forUpdate locks every table row so concurrent requests for the same
+// evening are checked one after the other (capacity check, BR-04).
+async function listTables(ex, { forUpdate = false } = {}) {
     const [rows] = await ex.query(
         `SELECT table_id, table_number, capacity, status
          FROM restaurant_tables
-         ORDER BY CAST(REGEXP_REPLACE(table_number, '[^0-9]', '') AS UNSIGNED), table_number`
+         ORDER BY CAST(REGEXP_REPLACE(table_number, '[^0-9]', '') AS UNSIGNED), table_number${forUpdate ? ' FOR UPDATE' : ''}`
     );
     return rows;
 }
