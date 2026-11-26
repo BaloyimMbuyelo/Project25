@@ -1,7 +1,9 @@
 
 import { useNavigate } from 'react-router-dom';
+import { getUser } from './auth/session';
+import { STAFF_PAGES, hasRole } from './auth/permissions';
 
-// Temporary dashboard demonstration data
+// Temporary dashboard demonstration data (shown labelled as sample data)
 const stats = [
   { label: 'Total Orders', value: '128', change: '+12.5%', icon: '▤' },
   { label: 'Reservations', value: '36', change: '+8.2%', icon: '▣' },
@@ -42,15 +44,12 @@ const orders = [
 
 function Dashboard() {
   const navigate = useNavigate();
+  const user = getUser();
 
-  const quickLinks = [
-    { name: 'Orders', path: '/staff/orders' },
-    { name: 'Reservations', path: '/staff/reservations' },
-    { name: 'Menu Management', path: '/staff/menu' },
-    { name: 'Inventory', path: '/staff/inventory' },
-    { name: 'Payments', path: '/staff/payments' },
-    { name: 'Reports', path: '/staff/reports' },
-  ];
+  // Only the pages this user's role can open (same rules as the side menu)
+  const quickLinks = STAFF_PAGES.filter(
+    (page) => page.path !== '/staff/dashboard' && hasRole(user, page.roles),
+  );
 
   return (
     <>
@@ -61,10 +60,12 @@ function Dashboard() {
             UBUNTU BISTRO MANAGEMENT SYSTEM
           </p>
 
-          <h2>Welcome back, Administrator!</h2>
+          <h2>Welcome back, {user?.full_name || 'there'}!</h2>
 
           <p>
+            {user?.role ? `Signed in as ${user.role}. ` : ''}
             Here's an overview of your restaurant operations.
+            The figures below are sample data until live reports are connected.
           </p>
         </div>
 
