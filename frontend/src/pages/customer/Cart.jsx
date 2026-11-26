@@ -1,6 +1,7 @@
 
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { menuImageSrc } from '../../api/modules';
 import './Cart.css';
 
 const CART_KEY = 'ubms_customer_cart';
@@ -65,7 +66,7 @@ function Cart() {
               {cart.map((item) => (
                 <article className="cart-item" key={item.id}>
                   <img
-                    src={`http://localhost:5000${item.image}`}
+                    src={menuImageSrc(item.image)}
                     alt={item.name}
                   />
 
